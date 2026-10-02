@@ -6,202 +6,177 @@ An experimental open-source dating automation dashboard built around a pluggable
 
 > “Let it swipe. You do you.”
 
-AUTOPILOT ships two environments:
+AUTOPILOT ships two environments and two strategies:
 
-| Mode | Adapter | Persistence |
+| | Demo Mode | Live Sandbox |
 |---|---|---|
-| **Demo** | `DemoAutomationAdapter` | Browser `localStorage` (simulated likes/matches) |
-| **Live Sandbox** | `SandboxAutomationAdapter` | Local SQLite backend (real persisted likes/matches) |
+| **Like Everyone** | Simulated likes/matches in-browser | Persisted likes + reciprocal matches (SQLite) |
+| **AI Selective** | Local heuristic LIKE/PASS | Local heuristic + persisted decisions |
 
-Neither mode connects to Tinder, Bumble, Hinge, or any production dating service. No credentials, no scraping, no private APIs.
+Neither mode connects to Tinder, Bumble, Hinge, or any production dating service.
+
+---
+
+## Architecture
+
+```
+AUTOPILOT UI
+     ↓
+ Strategy
+ ├── Like Everyone
+ └── AI Selective
+         ↓
+ SelectiveDecisionEngine   ← deterministic, local, explainable
+     ↓
+AutomationAdapter
+├── DemoAutomationAdapter
+└── SandboxAutomationAdapter
+         ↓
+    Sandbox API  (/api/sandbox/*)
+         ↓
+    SQLite  (data/sandbox.db)
+```
 
 ---
 
 ## Demo Mode
 
-Local simulation of the AUTOPILOT experience:
-
 ```bash
 npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000), click **Launch AUTOPILOT**, keep **DEMO** selected, then **START AUTOPILOT**.
+Open [http://localhost:3000](http://localhost:3000), launch AUTOPILOT, keep **DEMO** selected.
 
-Profiles are fictional. Matches are simulated (~5–12% probability) inside `DemoAutomationAdapter`. Session analytics persist in `localStorage`.
+- **Like Everyone** — likes every profile; matches are simulated (~5–12%).
+- **AI Selective** — evaluates each profile with `SelectiveDecisionEngine` against your Dating Preferences.
 
-The public Vercel deployment is fully functional in Demo Mode.
+Works on public Vercel deployments (no SQLite required).
+
+---
+
+## AI Selective
+
+Product name: **AI Selective**  
+Technical engine: **`SelectiveDecisionEngine`**
+
+V0.4’s Selective Decision Engine runs **locally** and does **not** send profile data to an external AI provider. It is a configurable heuristic — not a scientifically validated compatibility model, and not an LLM.
+
+### Hard filters vs preferences
+
+| Setting | Type | Effect |
+|---|---|---|
+| Age range | Required | Outside range → **PASS** |
+| Max distance | Required | Too far → **PASS** |
+| Non-smoker required | Required (optional) | Smoker → **PASS** |
+| Relationship goals | Preferred | Scores alignment |
+| Interests | Preferred | Scores shared tags |
+| Activity / children | Preferred | Lifestyle score |
+
+### Scoring weights (sum = 100)
+
+| Category | Weight |
+|---|---|
+| Age fit | 20 |
+| Distance fit | 15 |
+| Relationship goal | 25 |
+| Shared interests | 20 |
+| Lifestyle | 20 |
+
+### Threshold
+
+Default **70%**. Profiles at or above the threshold receive a LIKE (unless hard-filtered). Adjustable 50–90 in Settings → Dating Preferences.
+
+### Explainability
+
+Every decision returns a score plus reasons, e.g.:
+
+- **LIKE · 87%** — Preferred age · 8 km away · Long-term · Hockey
+- **PASS · 42%** — Outside required age · 61 km away
+
+A high score never creates a Match by itself. Matches still require reciprocal persisted likes (Live Sandbox) or Demo simulation on LIKE only.
 
 ---
 
 ## Live Sandbox
 
-V0.3 introduces a controlled backend environment where:
-
-- profiles are backend records
-- likes persist
-- reciprocal likes create matches
-- matches persist
-- no production dating service is involved
-
-### Architecture
-
-```
-AUTOPILOT UI
-     ↓
-AutopilotProvider
-     ↓
-AutomationAdapter
-     ├── DemoAutomationAdapter      ← Demo Mode
-     └── SandboxAutomationAdapter   ← Live Sandbox
-              ↓
-         Sandbox API  (/api/sandbox/*)
-              ↓
-         Sandbox Database  (SQLite → data/sandbox.db)
-```
-
-### Local setup (copy/paste)
+Controlled local backend (V0.3+) where likes, passes, and matches persist.
 
 ```bash
-# install
 npm install
-
-# initialize + seed SQLite (Alex + ~40 profiles + reciprocal likes)
 npm run sandbox:init
-
-# run the app
 npm run dev
 ```
 
-In the dashboard:
-
 1. Select **LIVE SANDBOX**
-2. Confirm status shows **SANDBOX CONNECTED** (or click **INITIALIZE SANDBOX**)
-3. **START AUTOPILOT**
+2. Initialize if needed
+3. Choose **AI Selective** or **Like Everyone**
+4. Configure Dating Preferences
+5. **START AUTOPILOT**
 
-Test user (not a real account):
+Test user: **Alex, 29** (`user-alex`)
 
-- **Alex**, 29 (`user-alex`)
+Seeded reciprocal likes (e.g. Grace → Alex) enable real matches when Alex likes back.
 
-Seeded reciprocal likes (already in the DB before you start):
+### Decisions
 
-- Grace → Alex, Sophie → Alex, Maya → Alex, and several others
+Live Sandbox records:
 
-When AUTOPILOT likes Grace, the backend detects Grace → Alex and creates **MATCH: Alex ↔ Grace**. There is no `Math.random()` match logic in Live Sandbox.
-
-### Useful commands
-
-```bash
-# re-seed / restore reciprocal likes
-npm run sandbox:reset
-
-# inspect via API while the app is running
-curl -s http://localhost:3000/api/sandbox/status | jq
-curl -s http://localhost:3000/api/sandbox/inspect | jq
-curl -s http://localhost:3000/api/sandbox/matches | jq
-
-# quality
-npm run lint
-npm run typecheck
-npm run build
-npm test
+```
+decisions(userId, profileId, decision, strategy, score, reasons, createdAt)
 ```
 
-Database file: `data/sandbox.db` (gitignored). Override location with:
-
-```bash
-SANDBOX_DATA_DIR=/tmp/autopilot-sandbox npm run sandbox:init
-SANDBOX_DATA_DIR=/tmp/autopilot-sandbox npm run dev
-```
+UNIQUE on `(userId, profileId)`. Next-profile excludes liked **or** passed profiles. Reset clears decisions and restores seed data.
 
 ### API
 
 | Method | Path | Purpose |
 |---|---|---|
 | `GET` | `/api/sandbox/status` | Availability + counts |
-| `POST` | `/api/sandbox/initialize` | Create schema + seed |
-| `POST` | `/api/sandbox/reset` | Clear likes/matches, restore seed |
-| `GET` | `/api/sandbox/profiles/next` | Next eligible profile for Alex |
-| `POST` | `/api/sandbox/likes` | `{ "toUserId": "..." }` — persist like, maybe match |
-| `GET` | `/api/sandbox/matches` | Persisted matches for Alex |
+| `POST` | `/api/sandbox/initialize` | Seed |
+| `POST` | `/api/sandbox/reset` | Restore seed |
+| `GET` | `/api/sandbox/profiles/next` | Next unprocessed profile |
+| `POST` | `/api/sandbox/likes` | Persist like (+ decision) |
+| `POST` | `/api/sandbox/decisions` | Persist LIKE/PASS (+ like if LIKE) |
+| `GET` | `/api/sandbox/matches` | Persisted matches |
 | `GET` | `/api/sandbox/inspect` | Developer snapshot |
 
-### Reset
+### Vercel
 
-**RESET SANDBOX** (dashboard / Settings) or `npm run sandbox:reset`:
-
-- clears likes
-- clears matches
-- restores seed users
-- restores predefined reciprocal likes toward Alex
-
-Demo Mode reset remains separate (**Reset Demo** on the analytics panel).
+Demo Mode works. Live Sandbox shows **LOCAL SETUP REQUIRED** — no silent fallback claiming Sandbox is connected.
 
 ---
 
-## Public deployment (Vercel)
+## Dating Preferences
 
-Live Sandbox needs a writable local SQLite file. Vercel’s serverless filesystem is ephemeral and unsuitable for this experiment.
+Settings → **Dating Preferences** (persisted in `localStorage`):
 
-On Vercel:
+- Age range (required)
+- Max distance (required)
+- Selective threshold
+- Preferred relationship goals
+- Preferred interests
+- Smoking / activity / children lifestyle controls
+- **Reset preferences**
 
-- **Demo Mode** works normally
-- **Live Sandbox** reports **LOCAL SETUP REQUIRED**
-- AUTOPILOT does **not** silently fall back to Demo while claiming Sandbox is connected
-
-Run Live Sandbox locally (or on a host with a persistent disk).
-
----
-
-## Duolicious investigation
-
-We evaluated [Duolicious](https://github.com/duolicious/duolicious) as a self-hosted backend candidate.
-
-**Conclusion: do not integrate for V0.3.**
-
-- AGPL licensing would constrain AUTOPILOT’s packaging story
-- Interaction model is message/Q&A oriented, not a clean Like → reciprocal Match loop
-- Local stack is comparatively heavy for this experiment
-- Open-source ≠ permission to automate Duolicious production — and even self-hosting would distort AUTOPILOT’s Like/Match model
-
-V0.3 therefore ships an AUTOPILOT-owned minimal sandbox (SQLite + internal API).
+Defaults are fictional for the Alex test persona (age 24–32, 40 km, long-term + open-to-see, threshold 70%).
 
 ---
 
-## Features
+## Strategy comparison
 
-- Mode switcher: **DEMO** / **LIVE SANDBOX**
-- Same dashboard for both adapters
-- START / STOP with connection-aware gating in Live Sandbox
-- Like Everyone mode (AI Selective marked coming later)
-- LIKE overlay + card exit motion + MATCH celebration
-- KPI strip, activity feed, session analytics
-- Matches & Sessions pages (sandbox matches read from the backend)
-- Sandbox data inspector in Settings
-- JSON / CSV export
-- Responsive layout
+Sessions record `LIKE_EVERYONE` vs `AI_SELECTIVE`. The Sessions page summarizes historical aggregates. Small samples are not conclusive — AUTOPILOT just displays the data.
 
 ---
 
-## Tech stack
-
-- Next.js 16 (App Router)
-- TypeScript
-- Tailwind CSS
-- Lucide icons
-- Recharts
-- `better-sqlite3` (Live Sandbox only)
-- `localStorage` (Demo sessions / settings)
-
----
-
-## Tests
+## Quality
 
 ```bash
+npm run lint
+npm run typecheck
+npm run build
 npm test
 ```
-
-Covers sandbox seed/like/match/reset semantics, `SandboxAutomationAdapter` backend wiring, and existing Demo adapter smoke coverage.
 
 Optional UI smoke (Playwright + server on :3000):
 
@@ -214,32 +189,19 @@ node scripts/ui-smoke.mjs
 
 ## Privacy
 
-- Demo: browser `localStorage`
+- Demo + preferences: browser `localStorage`
 - Live Sandbox: local `data/sandbox.db`
-- No third-party dating credentials are collected
+- V0.4 Selective Decision Engine is local-only
+- No third-party dating credentials
 
 ---
 
 ## Disclaimer
 
-AUTOPILOT is an **independent experimental project**.
-
-It is **not affiliated with, endorsed by, or sponsored by** Tinder, Match Group, Bumble, Hinge, or any other dating platform.
-
-Do not use third-party trademarks or copyrighted dating-app assets with this project.
-
----
-
-## Roadmap
-
-- AI Selective mode
-- Session comparisons / trends
-- Richer sandbox tooling
-
-This roadmap does **not** promise unofficial third-party dating-platform automation.
+AUTOPILOT is an **independent experimental project**, not affiliated with Tinder, Match Group, Bumble, Hinge, or any dating platform.
 
 ---
 
 ## License
 
-Use and modify freely for personal and open-source experimentation. Respect third-party trademarks and terms of service — this project does not grant permission to automate or scrape any dating service.
+Use and modify freely for personal and open-source experimentation. This project does not grant permission to automate or scrape any dating service.

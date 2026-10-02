@@ -15,13 +15,14 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { formatDuration, formatMatchRate } from "@/lib/format";
 
 export function SessionAnalytics() {
-  const { stats, resetDemo, exportResults, isRunning } = useAutopilot();
+  const { stats, resetDemo, exportResults, isRunning, config } = useAutopilot();
+  const selective = config.mode === "ai_selective";
 
-  const hasData = stats.likesSent > 0 || stats.profilesViewed > 0;
+  const hasData = stats.likesSent > 0 || stats.passes > 0 || stats.profilesViewed > 0;
   const data =
     stats.analytics.length > 0
       ? stats.analytics
-      : [{ actionIndex: 0, likes: 0, matches: 0 }];
+      : [{ actionIndex: 0, likes: 0, passes: 0, matches: 0, avgFitScore: 0 }];
 
   return (
     <div className="ap-card space-y-5 p-4 sm:p-5">
@@ -31,7 +32,9 @@ export function SessionAnalytics() {
             Session Analytics
           </h2>
           <p className="mt-1 text-xs text-ap-text-muted">
-            Cumulative likes & matches across actions
+            {selective
+              ? "Likes, passes, and matches across evaluated profiles"
+              : "Cumulative likes & matches across actions"}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -73,6 +76,10 @@ export function SessionAnalytics() {
                   <stop offset="0%" stopColor="#3dd68c" stopOpacity={0.3} />
                   <stop offset="100%" stopColor="#3dd68c" stopOpacity={0} />
                 </linearGradient>
+                <linearGradient id="passesFill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#8b8b96" stopOpacity={0.25} />
+                  <stop offset="100%" stopColor="#8b8b96" stopOpacity={0} />
+                </linearGradient>
               </defs>
               <CartesianGrid stroke="#1f1f24" strokeDasharray="3 3" />
               <XAxis
@@ -101,13 +108,25 @@ export function SessionAnalytics() {
               <Area
                 type="monotone"
                 dataKey="likes"
-                name="Likes Sent"
+                name="Likes"
                 stroke="#ff4d6d"
                 fill="url(#likesFill)"
                 strokeWidth={2}
                 dot={false}
                 isAnimationActive={false}
               />
+              {selective ? (
+                <Area
+                  type="monotone"
+                  dataKey="passes"
+                  name="Passes"
+                  stroke="#8b8b96"
+                  fill="url(#passesFill)"
+                  strokeWidth={2}
+                  dot={false}
+                  isAnimationActive={false}
+                />
+              ) : null}
               <Area
                 type="monotone"
                 dataKey="matches"
@@ -124,17 +143,26 @@ export function SessionAnalytics() {
           <EmptyState
             icon={TrendingUp}
             title="Analytics will appear here"
-            description="Start AUTOPILOT to plot cumulative likes and matches across the session."
+            description="Start AUTOPILOT to plot session decisions and matches."
           />
         )}
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-1 border-t border-ap-border-subtle">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 pt-1 border-t border-ap-border-subtle">
         <Stat label="Duration" value={formatDuration(stats.durationMs)} />
-        <Stat label="Profiles" value={String(stats.profilesViewed)} />
+        <Stat label="Evaluated" value={String(stats.profilesViewed)} />
         <Stat label="Likes" value={String(stats.likesSent)} />
-        <Stat label="Matches" value={String(stats.matches)} />
-        <Stat label="Match rate" value={formatMatchRate(stats.matchRate)} />
+        <Stat label="Passes" value={String(stats.passes)} />
+        <Stat
+          label={selective ? "Like rate" : "Match rate"}
+          value={formatMatchRate(selective ? stats.likeRate : stats.matchRate)}
+        />
+        <Stat
+          label={selective ? "Avg fit" : "Matches"}
+          value={
+            selective ? `${stats.averageFitScore}%` : String(stats.matches)
+          }
+        />
       </div>
     </div>
   );

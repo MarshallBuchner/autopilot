@@ -7,8 +7,11 @@ import type {
 import {
   fetchNextSandboxProfile,
   fetchSandboxStatus,
+  postSandboxDecision,
   postSandboxLike,
 } from "@/lib/sandbox/client";
+import { evaluateProfile } from "@/lib/selective/SelectiveDecisionEngine";
+import type { SelectiveEvaluation } from "@/lib/selective/types";
 import type { AdapterStatus, DemoProfile, SessionConfig } from "@/lib/types";
 
 type ListenerMap = {
@@ -16,8 +19,9 @@ type ListenerMap = {
 };
 
 /**
- * Live Sandbox adapter (V0.3).
+ * Live Sandbox adapter.
  * Talks to the AUTOPILOT-owned sandbox API — never fabricates likes/matches.
+ * AI Selective evaluates locally, then persists LIKE/PASS via the backend.
  */
 export class SandboxAutomationAdapter implements AutomationAdapter {
   private status: AdapterStatus = "disconnected";
@@ -26,7 +30,8 @@ export class SandboxAutomationAdapter implements AutomationAdapter {
   private config: SessionConfig | null = null;
   private profilesProcessed = 0;
   private currentProfile: DemoProfile | null = null;
-  private phase: "idle" | "showing" | "liking" = "idle";
+  private currentEvaluation: SelectiveEvaluation | null = null;
+  private phase: "idle" | "showing" | "evaluating" | "acting" = "idle";
   private ticking = false;
 
   async connect(): Promise<void> {
@@ -83,14 +88,11 @@ export class SandboxAutomationAdapter implements AutomationAdapter {
       return;
     }
 
-    if (config.mode !== "like_everyone") {
-      this.emit("error", {
-        message: "AI Selective mode is coming later. Use Like Everyone for now.",
-      });
+    if (config.mode !== "like_everyone" && config.mode !== "ai_selective") {
+      this.emit("error", { message: "Unknown automation mode." });
       return;
     }
 
-    // Re-verify backend before starting
     try {
       const status = await fetchSandboxStatus();
       if (!status.available || !status.initialized || !status.connected) {
@@ -111,10 +113,11 @@ export class SandboxAutomationAdapter implements AutomationAdapter {
       return;
     }
 
-    this.config = { ...config };
+    this.config = { ...config, preferences: { ...config.preferences } };
     this.profilesProcessed = 0;
     this.phase = "idle";
     this.currentProfile = null;
+    this.currentEvaluation = null;
     this.status = "running";
     this.emit("statusChanged", this.status);
     this.scheduleNext(0);
@@ -125,6 +128,7 @@ export class SandboxAutomationAdapter implements AutomationAdapter {
     const wasRunning = this.status === "running";
     this.phase = "idle";
     this.currentProfile = null;
+    this.currentEvaluation = null;
     if (wasRunning) {
       this.status = "stopped";
       this.emit("statusChanged", this.status);
@@ -187,7 +191,7 @@ export class SandboxAutomationAdapter implements AutomationAdapter {
     if (this.status !== "running" || !this.config || this.ticking) return;
     this.ticking = true;
     try {
-      if (this.phase === "idle" || this.phase === "liking") {
+      if (this.phase === "idle" || this.phase === "acting") {
         if (
           this.config.stopAfterMax &&
           this.profilesProcessed >= this.config.maxProfiles
@@ -228,19 +232,103 @@ export class SandboxAutomationAdapter implements AutomationAdapter {
         }
 
         this.currentProfile = profile;
+        this.currentEvaluation = null;
         this.phase = "showing";
         this.emit("profileLoaded", profile);
-        this.scheduleNext(this.delayMs());
+
+        if (this.config.mode === "ai_selective") {
+          this.scheduleNext(Math.min(900, Math.max(350, this.delayMs() * 0.35)));
+        } else {
+          this.scheduleNext(this.delayMs());
+        }
         return;
       }
 
-      if (this.phase === "showing" && this.currentProfile) {
+      if (
+        this.phase === "showing" &&
+        this.currentProfile &&
+        this.config.mode === "ai_selective"
+      ) {
         const profile = this.currentProfile;
-        this.phase = "liking";
+        const evaluation = evaluateProfile(profile, this.config.preferences);
+        this.currentEvaluation = evaluation;
+        this.phase = "evaluating";
+        this.emit("profileEvaluated", { profile, evaluation });
+        this.scheduleNext(Math.min(1400, Math.max(700, this.delayMs() * 0.45)));
+        return;
+      }
 
-        let likeResult;
+      if (
+        (this.phase === "showing" || this.phase === "evaluating") &&
+        this.currentProfile
+      ) {
+        const profile = this.currentProfile;
+        this.phase = "acting";
+
+        if (this.config.mode === "ai_selective") {
+          const evaluation =
+            this.currentEvaluation ??
+            evaluateProfile(profile, this.config.preferences);
+          const decision = evaluation.decision;
+
+          try {
+            const result = await postSandboxDecision({
+              toUserId: profile.id,
+              decision,
+              strategy: "AI_SELECTIVE",
+              score: evaluation.score,
+              reasons: {
+                hardFilterFailures: evaluation.hardFilterFailures,
+                matchedPreferences: evaluation.matchedPreferences,
+                missedPreferences: evaluation.missedPreferences,
+                highlightChips: evaluation.highlightChips,
+              },
+            });
+
+            this.profilesProcessed += 1;
+            this.emit("actionPerformed", {
+              profile,
+              action: decision === "LIKE" ? "like" : "pass",
+              evaluation,
+            });
+
+            const matched = Boolean(result.match);
+            if (result.match) {
+              this.emit("matchDetected", result.match.profile);
+            }
+
+            const exitMs = 700;
+            const matchPauseMs = matched ? 2000 : 0;
+            const baseGap = Math.min(1100, Math.max(500, this.delayMs() * 0.35));
+            this.scheduleNext(baseGap + exitMs + matchPauseMs);
+          } catch (error) {
+            this.emit("error", {
+              message:
+                error instanceof Error
+                  ? `Decision failed for ${profile.firstName}: ${error.message}`
+                  : `Decision failed for ${profile.firstName}`,
+            });
+            const baseGap = Math.min(1100, Math.max(500, this.delayMs() * 0.35));
+            this.scheduleNext(baseGap + 700);
+          }
+          return;
+        }
+
+        // Like Everyone
         try {
-          likeResult = await postSandboxLike(profile.id);
+          const likeResult = await postSandboxLike(profile.id);
+          if (likeResult.like.created || likeResult.like.id) {
+            this.profilesProcessed += 1;
+            this.emit("actionPerformed", { profile, action: "like" });
+          }
+          const matched = Boolean(likeResult.match);
+          if (likeResult.match) {
+            this.emit("matchDetected", likeResult.match.profile);
+          }
+          const exitMs = 700;
+          const matchPauseMs = matched ? 2000 : 0;
+          const baseGap = Math.min(1100, Math.max(500, this.delayMs() * 0.35));
+          this.scheduleNext(baseGap + exitMs + matchPauseMs);
         } catch (error) {
           this.emit("error", {
             message:
@@ -248,27 +336,9 @@ export class SandboxAutomationAdapter implements AutomationAdapter {
                 ? `Like failed for ${profile.firstName}: ${error.message}`
                 : `Like failed for ${profile.firstName}`,
           });
-          // Soft continue to next profile after a short pause
           const baseGap = Math.min(1100, Math.max(500, this.delayMs() * 0.35));
           this.scheduleNext(baseGap + 700);
-          return;
         }
-
-        // Only count successful backend writes
-        if (likeResult.like.created || likeResult.like.id) {
-          this.profilesProcessed += 1;
-          this.emit("actionPerformed", { profile, action: "like" });
-        }
-
-        const matched = Boolean(likeResult.match);
-        if (likeResult.match) {
-          this.emit("matchDetected", likeResult.match.profile);
-        }
-
-        const exitMs = 700;
-        const matchPauseMs = matched ? 2000 : 0;
-        const baseGap = Math.min(1100, Math.max(500, this.delayMs() * 0.35));
-        this.scheduleNext(baseGap + exitMs + matchPauseMs);
       }
     } finally {
       this.ticking = false;

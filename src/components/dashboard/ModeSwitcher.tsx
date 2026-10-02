@@ -159,14 +159,15 @@ export function ModeSwitcher() {
             </>
           ) : (
             <>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 text-xs">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-5 text-xs">
                 <Stat label="Profiles" value={String(sandboxStatus.profiles)} />
                 <Stat
-                  label="Existing Likes"
+                  label="Likes"
                   value={String(
                     sandboxStatus.outgoingLikes + sandboxStatus.incomingLikes
                   )}
                 />
+                <Stat label="Passes" value={String(sandboxStatus.passes ?? 0)} />
                 <Stat label="Matches" value={String(sandboxStatus.matches)} />
                 <Stat
                   label="Database"

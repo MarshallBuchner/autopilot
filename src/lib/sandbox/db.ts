@@ -66,6 +66,13 @@ export function closeSandboxDb(): void {
   }
 }
 
+function columnExists(database: Database.Database, table: string, column: string): boolean {
+  const rows = database.prepare(`PRAGMA table_info(${table})`).all() as Array<{
+    name: string;
+  }>;
+  return rows.some((r) => r.name === column);
+}
+
 function migrate(database: Database.Database): void {
   database.exec(`
     CREATE TABLE IF NOT EXISTS users (
@@ -79,6 +86,12 @@ function migrate(database: Database.Database): void {
       avatar_hue INTEGER NOT NULL,
       avatar_variant INTEGER NOT NULL,
       avatar_style TEXT NOT NULL,
+      relationship_goal TEXT NOT NULL DEFAULT 'open-to-see',
+      activity_level TEXT NOT NULL DEFAULT 'moderate',
+      smoking TEXT NOT NULL DEFAULT 'never',
+      drinking TEXT NOT NULL DEFAULT 'socially',
+      has_children INTEGER NOT NULL DEFAULT 0,
+      wants_children INTEGER,
       is_current_user INTEGER NOT NULL DEFAULT 0,
       created_at INTEGER NOT NULL
     );
@@ -103,10 +116,40 @@ function migrate(database: Database.Database): void {
       FOREIGN KEY(user_b_id) REFERENCES users(id) ON DELETE CASCADE
     );
 
+    CREATE TABLE IF NOT EXISTS decisions (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      profile_id TEXT NOT NULL,
+      decision TEXT NOT NULL,
+      strategy TEXT NOT NULL,
+      score INTEGER,
+      reasons_json TEXT,
+      created_at INTEGER NOT NULL,
+      UNIQUE(user_id, profile_id),
+      FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY(profile_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
     CREATE INDEX IF NOT EXISTS idx_likes_from ON likes(from_user_id);
     CREATE INDEX IF NOT EXISTS idx_likes_to ON likes(to_user_id);
     CREATE INDEX IF NOT EXISTS idx_matches_users ON matches(user_a_id, user_b_id);
+    CREATE INDEX IF NOT EXISTS idx_decisions_user ON decisions(user_id);
   `);
+
+  // Safe additive migration for DBs created in V0.3
+  const lifestyleCols: Array<[string, string]> = [
+    ["relationship_goal", "TEXT NOT NULL DEFAULT 'open-to-see'"],
+    ["activity_level", "TEXT NOT NULL DEFAULT 'moderate'"],
+    ["smoking", "TEXT NOT NULL DEFAULT 'never'"],
+    ["drinking", "TEXT NOT NULL DEFAULT 'socially'"],
+    ["has_children", "INTEGER NOT NULL DEFAULT 0"],
+    ["wants_children", "INTEGER"],
+  ];
+  for (const [col, def] of lifestyleCols) {
+    if (!columnExists(database, "users", col)) {
+      database.exec(`ALTER TABLE users ADD COLUMN ${col} ${def}`);
+    }
+  }
 }
 
 export function isSandboxInitialized(database?: Database.Database): boolean {

@@ -40,14 +40,19 @@ export function SessionCompleteModal({
         </p>
 
         <div className="mt-5 grid grid-cols-2 gap-3">
-          <Stat label="Profiles Viewed" value={String(session.profilesViewed)} />
-          <Stat label="Likes Sent" value={String(session.likesSent)} />
+          <Stat label="Strategy" value={session.strategy === "AI_SELECTIVE" ? "AI Selective" : "Like Everyone"} />
+          <Stat label="Profiles" value={String(session.profilesViewed)} />
+          <Stat label="Likes" value={String(session.likesSent)} />
+          <Stat label="Passes" value={String(session.passes ?? 0)} />
           <Stat label="Matches" value={String(session.matches)} accent />
-          <Stat label="Match Rate" value={formatMatchRate(session.matchRate)} />
+          <Stat label="Match / like" value={formatMatchRate(session.matchRate)} />
+          {session.strategy === "AI_SELECTIVE" ? (
+            <Stat label="Avg fit" value={`${Math.round(session.averageFitScore ?? 0)}%`} />
+          ) : null}
           <Stat
             label="Duration"
             value={formatDuration(session.durationMs)}
-            className="col-span-2"
+            className={session.strategy === "AI_SELECTIVE" ? "" : "col-span-2"}
           />
         </div>
 

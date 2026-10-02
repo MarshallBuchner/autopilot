@@ -5,6 +5,8 @@ import type {
   AutomationListener,
 } from "@/lib/automation/AutomationAdapter";
 import { generateDemoProfile } from "@/lib/automation/demoProfiles";
+import { evaluateProfile } from "@/lib/selective/SelectiveDecisionEngine";
+import type { SelectiveEvaluation } from "@/lib/selective/types";
 import type { AdapterStatus, DemoProfile, SessionConfig } from "@/lib/types";
 
 type ListenerMap = {
@@ -12,9 +14,8 @@ type ListenerMap = {
 };
 
 /**
- * Simulation-only adapter (V0.1 / V0.2).
- * Emits realistic profile/like/match events on a timer.
- * Does not contact any third-party dating service.
+ * Simulation-only adapter.
+ * Like Everyone + AI Selective both run locally; matches are simulated on LIKE only.
  */
 export class DemoAutomationAdapter implements AutomationAdapter {
   private status: AdapterStatus = "disconnected";
@@ -24,7 +25,8 @@ export class DemoAutomationAdapter implements AutomationAdapter {
   private profilesProcessed = 0;
   private seed = Date.now() % 1_000_000;
   private currentProfile: DemoProfile | null = null;
-  private phase: "idle" | "showing" | "liking" = "idle";
+  private currentEvaluation: SelectiveEvaluation | null = null;
+  private phase: "idle" | "showing" | "evaluating" | "acting" = "idle";
 
   async connect(): Promise<void> {
     this.status = "connected";
@@ -42,16 +44,15 @@ export class DemoAutomationAdapter implements AutomationAdapter {
     if (this.status === "disconnected") {
       await this.connect();
     }
-    if (config.mode !== "like_everyone") {
-      this.emit("error", {
-        message: "AI Selective mode is coming later. Use Like Everyone for now.",
-      });
+    if (config.mode !== "like_everyone" && config.mode !== "ai_selective") {
+      this.emit("error", { message: "Unknown automation mode." });
       return;
     }
 
-    this.config = { ...config };
+    this.config = { ...config, preferences: { ...config.preferences } };
     this.profilesProcessed = 0;
     this.seed = (Date.now() + Math.floor(Math.random() * 10_000)) % 1_000_000;
+    this.currentEvaluation = null;
     this.status = "running";
     this.emit("statusChanged", this.status);
     this.scheduleNext(0);
@@ -62,6 +63,7 @@ export class DemoAutomationAdapter implements AutomationAdapter {
     const wasRunning = this.status === "running";
     this.phase = "idle";
     this.currentProfile = null;
+    this.currentEvaluation = null;
     if (wasRunning) {
       this.status = "stopped";
       this.emit("statusChanged", this.status);
@@ -109,7 +111,6 @@ export class DemoAutomationAdapter implements AutomationAdapter {
   private delayMs(): number {
     const base = (this.config?.actionDelaySeconds ?? 3) * 1000;
     if (!this.config?.randomizeTiming) return base;
-    // Vary ±35% around selected delay
     const factor = 0.65 + Math.random() * 0.7;
     return Math.max(400, Math.round(base * factor));
   }
@@ -124,7 +125,7 @@ export class DemoAutomationAdapter implements AutomationAdapter {
   private async tick(): Promise<void> {
     if (this.status !== "running" || !this.config) return;
 
-    if (this.phase === "idle" || this.phase === "liking") {
+    if (this.phase === "idle" || this.phase === "acting") {
       if (
         this.config.stopAfterMax &&
         this.profilesProcessed >= this.config.maxProfiles
@@ -139,26 +140,69 @@ export class DemoAutomationAdapter implements AutomationAdapter {
 
       this.seed += 1;
       this.currentProfile = generateDemoProfile(this.seed);
+      this.currentEvaluation = null;
       this.phase = "showing";
       this.emit("profileLoaded", this.currentProfile);
-      this.scheduleNext(this.delayMs());
+
+      if (this.config.mode === "ai_selective") {
+        // Brief beat so the profile registers before evaluation UI
+        this.scheduleNext(Math.min(900, Math.max(350, this.delayMs() * 0.35)));
+      } else {
+        this.scheduleNext(this.delayMs());
+      }
       return;
     }
 
-    if (this.phase === "showing" && this.currentProfile) {
+    if (
+      this.phase === "showing" &&
+      this.currentProfile &&
+      this.config.mode === "ai_selective"
+    ) {
       const profile = this.currentProfile;
-      this.phase = "liking";
-      this.profilesProcessed += 1;
-      this.emit("actionPerformed", { profile, action: "like" });
+      const evaluation = evaluateProfile(profile, this.config.preferences);
+      this.currentEvaluation = evaluation;
+      this.phase = "evaluating";
+      this.emit("profileEvaluated", { profile, evaluation });
+      // Hold score/reasons briefly before acting
+      this.scheduleNext(Math.min(1400, Math.max(700, this.delayMs() * 0.45)));
+      return;
+    }
 
-      // ~5–12% match probability
-      const matchChance = 0.05 + Math.random() * 0.07;
-      const matched = Math.random() < matchChance;
-      if (matched) {
-        this.emit("matchDetected", profile);
+    if (
+      (this.phase === "showing" || this.phase === "evaluating") &&
+      this.currentProfile
+    ) {
+      const profile = this.currentProfile;
+      this.phase = "acting";
+      this.profilesProcessed += 1;
+
+      if (this.config.mode === "ai_selective") {
+        const evaluation =
+          this.currentEvaluation ??
+          evaluateProfile(profile, this.config.preferences);
+        const action = evaluation.decision === "LIKE" ? "like" : "pass";
+        this.emit("actionPerformed", { profile, action, evaluation });
+
+        let matched = false;
+        if (action === "like") {
+          const matchChance = 0.05 + Math.random() * 0.07;
+          matched = Math.random() < matchChance;
+          if (matched) this.emit("matchDetected", profile);
+        }
+
+        const exitMs = 700;
+        const matchPauseMs = matched ? 2000 : 0;
+        const baseGap = Math.min(1100, Math.max(500, this.delayMs() * 0.35));
+        this.scheduleNext(baseGap + exitMs + matchPauseMs);
+        return;
       }
 
-      // Leave room for LIKE exit animation; longer pause after a match celebration
+      // Like Everyone
+      this.emit("actionPerformed", { profile, action: "like" });
+      const matchChance = 0.05 + Math.random() * 0.07;
+      const matched = Math.random() < matchChance;
+      if (matched) this.emit("matchDetected", profile);
+
       const exitMs = 700;
       const matchPauseMs = matched ? 2000 : 0;
       const baseGap = Math.min(1100, Math.max(500, this.delayMs() * 0.35));

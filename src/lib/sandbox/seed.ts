@@ -1,4 +1,8 @@
-import { generateDemoProfile, listCuratedProfiles } from "@/lib/automation/demoProfiles";
+import {
+  generateDemoProfile,
+  listCuratedProfiles,
+  lifestyleForName,
+} from "@/lib/automation/demoProfiles";
 import type { DemoProfile } from "@/lib/types";
 import { SANDBOX_CURRENT_USER_ID } from "@/lib/sandbox/types";
 
@@ -14,6 +18,12 @@ export const SANDBOX_CURRENT_USER: DemoProfile & { id: string } = {
   avatarHue: 205,
   avatarVariant: 4,
   avatarStyle: "cool",
+  relationshipGoal: "long-term",
+  activityLevel: "moderate",
+  smoking: "never",
+  drinking: "socially",
+  hasChildren: false,
+  wantsChildren: null,
 };
 
 /** Seeded profiles that already Like Alex before AUTOPILOT starts. */
@@ -30,7 +40,18 @@ export const RECIPROCAL_LIKER_NAMES = [
   "Harper",
 ] as const;
 
-const EXTRA_SEED: Array<Omit<DemoProfile, "id">> = [
+const EXTRA_BASE: Array<
+  Omit<
+    DemoProfile,
+    | "id"
+    | "relationshipGoal"
+    | "activityLevel"
+    | "smoking"
+    | "drinking"
+    | "hasChildren"
+    | "wantsChildren"
+  >
+> = [
   {
     firstName: "Blair",
     age: 28,
@@ -164,6 +185,11 @@ const EXTRA_SEED: Array<Omit<DemoProfile, "id">> = [
     avatarStyle: "warm",
   },
 ];
+
+const EXTRA_SEED: Array<Omit<DemoProfile, "id">> = EXTRA_BASE.map((p) => ({
+  ...p,
+  ...lifestyleForName(p.firstName),
+}));
 
 export function buildSandboxSeedProfiles(): Array<DemoProfile & { id: string }> {
   const curated = listCuratedProfiles()

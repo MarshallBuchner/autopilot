@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useAutopilot } from "@/context/AutopilotProvider";
+import { DatingPreferencesPanel } from "@/components/settings/DatingPreferencesPanel";
 import { cn } from "@/lib/cn";
 import { SANDBOX_CURRENT_USER } from "@/lib/sandbox/seed";
 
@@ -50,6 +51,8 @@ export default function SettingsPage() {
           Defaults applied when you start a new session.
         </p>
       </header>
+
+      <DatingPreferencesPanel />
 
       <section className="ap-card p-5 space-y-5">
         <h2 className="font-[family-name:var(--font-syne)] text-base font-semibold">
@@ -190,6 +193,8 @@ export default function SettingsPage() {
             label="Incoming likes"
             value={String(sandboxStatus?.incomingLikes ?? "—")}
           />
+          <Row label="Passes" value={String(sandboxStatus?.passes ?? "—")} />
+          <Row label="Decisions" value={String(sandboxStatus?.decisions ?? "—")} />
           <Row label="Matches" value={String(sandboxStatus?.matches ?? "—")} />
         </div>
 
@@ -259,6 +264,8 @@ export default function SettingsPage() {
                 currentUser: sandboxInspect?.currentUser ?? SANDBOX_CURRENT_USER,
                 outgoingLikes: sandboxInspect?.outgoingLikes ?? [],
                 incomingLikes: sandboxInspect?.incomingLikes ?? [],
+                passes: sandboxInspect?.passes ?? [],
+                decisions: sandboxInspect?.decisions ?? [],
                 matches: sandboxInspect?.matches ?? [],
               },
               null,

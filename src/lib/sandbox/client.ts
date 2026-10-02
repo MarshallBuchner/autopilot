@@ -1,9 +1,11 @@
 import type { DemoProfile, MatchRecord } from "@/lib/types";
 import type {
+  SandboxDecisionResult,
   SandboxInspectData,
   SandboxLikeResult,
   SandboxStatus,
 } from "@/lib/sandbox/types";
+import type { SelectiveDecision, StrategyKind } from "@/lib/selective/types";
 
 async function parseJson<T>(response: Response): Promise<T> {
   const data = (await response.json()) as T & { error?: string };
@@ -43,6 +45,21 @@ export async function postSandboxLike(toUserId: string): Promise<SandboxLikeResu
     body: JSON.stringify({ toUserId }),
   });
   return parseJson<SandboxLikeResult>(res);
+}
+
+export async function postSandboxDecision(input: {
+  toUserId: string;
+  decision: SelectiveDecision;
+  strategy: StrategyKind;
+  score?: number | null;
+  reasons?: unknown;
+}): Promise<SandboxDecisionResult> {
+  const res = await fetch("/api/sandbox/decisions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  return parseJson<SandboxDecisionResult>(res);
 }
 
 export async function fetchSandboxMatches(): Promise<MatchRecord[]> {

@@ -1,10 +1,34 @@
-import type { AvatarStyle, DemoProfile } from "@/lib/types";
+import type {
+  ActivityLevel,
+  AvatarStyle,
+  DemoProfile,
+  RelationshipGoal,
+} from "@/lib/types";
 import { AVATAR_STYLES } from "@/lib/types";
+import type { DrinkingHabit, SmokingHabit } from "@/lib/selective/types";
 
-type ProfileSeed = Omit<DemoProfile, "id" | "avatarHue" | "avatarVariant" | "avatarStyle"> & {
+type ProfileSeed = Omit<
+  DemoProfile,
+  | "id"
+  | "avatarHue"
+  | "avatarVariant"
+  | "avatarStyle"
+  | "relationshipGoal"
+  | "activityLevel"
+  | "smoking"
+  | "drinking"
+  | "hasChildren"
+  | "wantsChildren"
+> & {
   hue: number;
   variant: number;
   style: AvatarStyle;
+  relationshipGoal?: RelationshipGoal;
+  activityLevel?: ActivityLevel;
+  smoking?: SmokingHabit;
+  drinking?: DrinkingHabit;
+  hasChildren?: boolean;
+  wantsChildren?: boolean | null;
 };
 
 /**
@@ -158,10 +182,10 @@ const CURATED: ProfileSeed[] = [
   {
     firstName: "Grace",
     age: 26,
-    distanceKm: 3,
+    distanceKm: 8,
     occupation: "Teacher",
-    bio: "Here for good conversation and sunrise hikes.",
-    interests: ["Hiking", "Teaching", "Coffee", "Art"],
+    bio: "Here for good conversation, sunrise hikes, and the occasional hockey night.",
+    interests: ["Hockey", "Outdoors", "Hiking", "Coffee"],
     hue: 45,
     variant: 1,
     style: "soft",
@@ -327,6 +351,7 @@ const INTEREST_POOL = [
   "Travel",
   "Dogs",
   "Fitness",
+  "Outdoors",
   "Coffee",
   "Photography",
   "Hiking",
@@ -401,7 +426,75 @@ function pickN<T>(rng: () => number, arr: T[], n: number): T[] {
   return out;
 }
 
+const GOALS: RelationshipGoal[] = [
+  "long-term",
+  "open-to-see",
+  "short-term",
+  "casual",
+  "friendship",
+  "long-term",
+  "open-to-see",
+];
+const ACTIVITY: ActivityLevel[] = ["low", "moderate", "active", "very-active"];
+const SMOKING: SmokingHabit[] = ["never", "never", "never", "sometimes", "regularly"];
+const DRINKING: DrinkingHabit[] = ["never", "sometimes", "socially", "regularly"];
+
+/** Deterministic lifestyle attributes for fictional profiles. */
+export function lifestyleForName(firstName: string, salt = 0): Pick<
+  DemoProfile,
+  | "relationshipGoal"
+  | "activityLevel"
+  | "smoking"
+  | "drinking"
+  | "hasChildren"
+  | "wantsChildren"
+> {
+  // Narrative overrides for V0.4 success path / clear PASS examples
+  if (firstName === "Grace") {
+    return {
+      relationshipGoal: "long-term",
+      activityLevel: "active",
+      smoking: "never",
+      drinking: "socially",
+      hasChildren: false,
+      wantsChildren: null,
+    };
+  }
+  if (firstName === "Jamie") {
+    return {
+      relationshipGoal: "casual",
+      activityLevel: "low",
+      smoking: "sometimes",
+      drinking: "regularly",
+      hasChildren: true,
+      wantsChildren: false,
+    };
+  }
+
+  let h = salt * 131;
+  for (let i = 0; i < firstName.length; i++) {
+    h = (h * 33 + firstName.charCodeAt(i)) >>> 0;
+  }
+  return {
+    relationshipGoal: GOALS[h % GOALS.length]!,
+    activityLevel: ACTIVITY[h % ACTIVITY.length]!,
+    smoking: SMOKING[h % SMOKING.length]!,
+    drinking: DRINKING[h % DRINKING.length]!,
+    hasChildren: h % 11 === 0,
+    wantsChildren: h % 3 === 0 ? true : h % 3 === 1 ? false : null,
+  };
+}
+
 function fromSeed(seed: ProfileSeed, id: string): DemoProfile {
+  const lifestyle = {
+    ...lifestyleForName(seed.firstName),
+    ...(seed.relationshipGoal ? { relationshipGoal: seed.relationshipGoal } : {}),
+    ...(seed.activityLevel ? { activityLevel: seed.activityLevel } : {}),
+    ...(seed.smoking ? { smoking: seed.smoking } : {}),
+    ...(seed.drinking ? { drinking: seed.drinking } : {}),
+    ...(seed.hasChildren !== undefined ? { hasChildren: seed.hasChildren } : {}),
+    ...(seed.wantsChildren !== undefined ? { wantsChildren: seed.wantsChildren } : {}),
+  };
   return {
     id,
     firstName: seed.firstName,
@@ -413,6 +506,7 @@ function fromSeed(seed: ProfileSeed, id: string): DemoProfile {
     avatarHue: seed.hue,
     avatarVariant: seed.variant,
     avatarStyle: seed.style,
+    ...lifestyle,
   };
 }
 
@@ -427,9 +521,10 @@ export function generateDemoProfile(seed: number): DemoProfile {
 
   const rng = mulberry32(seed);
   const interestCount = 3 + Math.floor(rng() * 3);
+  const firstName = pick(rng, FALLBACK_NAMES);
   return {
     id: `demo-${seed.toString(36)}`,
-    firstName: pick(rng, FALLBACK_NAMES),
+    firstName,
     age: 22 + Math.floor(rng() * 12),
     distanceKm: Math.max(1, Math.round(rng() * 24)),
     occupation: pick(rng, FALLBACK_JOBS),
@@ -438,6 +533,7 @@ export function generateDemoProfile(seed: number): DemoProfile {
     avatarHue: Math.floor(rng() * 360),
     avatarVariant: Math.floor(rng() * 12),
     avatarStyle: pick(rng, AVATAR_STYLES),
+    ...lifestyleForName(firstName, seed),
   };
 }
 

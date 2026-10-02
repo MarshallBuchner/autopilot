@@ -160,6 +160,17 @@ body {
   }
 }
 
+@keyframes ap-profile-exit-left {
+  from {
+    opacity: 1;
+    transform: translateX(0) scale(1) rotate(0deg);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(-48px) scale(0.96) rotate(-3deg);
+  }
+}
+
 @keyframes ap-activity-in {
   from {
     opacity: 0;
@@ -254,6 +265,10 @@ body {
   animation: ap-profile-exit 0.55s cubic-bezier(0.4, 0, 0.2, 1) both;
 }
 
+.ap-animate-profile-exit-left {
+  animation: ap-profile-exit-left 0.55s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
 .ap-animate-like {
   animation: ap-like-pop 0.65s ease-out both;
 }
@@ -302,6 +317,7 @@ body {
   .ap-animate-fade-in,
   .ap-animate-profile,
   .ap-animate-profile-exit,
+  .ap-animate-profile-exit-left,
   .ap-animate-like,
   .ap-animate-match,
   .ap-animate-activity,

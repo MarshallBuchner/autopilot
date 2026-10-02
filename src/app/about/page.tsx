@@ -51,6 +51,18 @@ export default function AboutPage() {
 
       <section className="ap-card space-y-3 p-5 text-sm">
         <h2 className="font-[family-name:var(--font-syne)] text-base font-semibold text-ap-text">
+          AI Selective
+        </h2>
+        <p className="leading-relaxed text-ap-text-muted">
+          Evaluates each profile with a local{" "}
+          <code className="text-xs text-ap-accent">SelectiveDecisionEngine</code> against
+          your Dating Preferences. Decisions are explainable (score + reasons). No profile
+          data is sent to an external AI provider in V0.4.
+        </p>
+      </section>
+
+      <section className="ap-card space-y-3 p-5 text-sm">
+        <h2 className="font-[family-name:var(--font-syne)] text-base font-semibold text-ap-text">
           Live Sandbox
         </h2>
         <p className="leading-relaxed text-ap-text-muted">

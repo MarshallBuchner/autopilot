@@ -43,7 +43,9 @@ export function ActivityFeed() {
                   evt.type === "match" && "font-medium text-ap-accent",
                   evt.type === "error" && "text-ap-warning",
                   evt.type === "liked" && "text-ap-text",
-                  evt.type === "profile_loaded" && "text-ap-text-muted",
+                  evt.type === "passed" && "text-ap-text-muted",
+                  (evt.type === "profile_loaded" || evt.type === "evaluating") &&
+                    "text-ap-text-muted",
                   (evt.type === "session_start" || evt.type === "session_stop") &&
                     "text-ap-text-muted",
                   evt.type === "info" && "text-ap-text-muted"

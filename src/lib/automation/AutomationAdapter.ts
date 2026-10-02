@@ -1,8 +1,17 @@
+import type { SelectiveEvaluation } from "@/lib/selective/types";
 import type { AdapterStatus, DemoProfile, SessionConfig } from "@/lib/types";
 
 export type AutomationEventMap = {
   profileLoaded: DemoProfile;
-  actionPerformed: { profile: DemoProfile; action: "like" };
+  profileEvaluated: {
+    profile: DemoProfile;
+    evaluation: SelectiveEvaluation;
+  };
+  actionPerformed: {
+    profile: DemoProfile;
+    action: "like" | "pass";
+    evaluation?: SelectiveEvaluation;
+  };
   matchDetected: DemoProfile;
   statusChanged: AdapterStatus;
   sessionComplete: { reason: "max_profiles" | "stopped" | "error" };

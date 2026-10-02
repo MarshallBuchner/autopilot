@@ -1,4 +1,12 @@
 import type { AvatarStyle, DemoProfile } from "@/lib/types";
+import type {
+  ActivityLevel,
+  DrinkingHabit,
+  RelationshipGoal,
+  SelectiveDecision,
+  SmokingHabit,
+  StrategyKind,
+} from "@/lib/selective/types";
 
 export const SANDBOX_CURRENT_USER_ID = "user-alex";
 
@@ -13,6 +21,12 @@ export interface SandboxUserRow {
   avatar_hue: number;
   avatar_variant: number;
   avatar_style: string;
+  relationship_goal: string;
+  activity_level: string;
+  smoking: string;
+  drinking: string;
+  has_children: number;
+  wants_children: number | null;
   is_current_user: number;
   created_at: number;
 }
@@ -31,6 +45,17 @@ export interface SandboxMatchRow {
   created_at: number;
 }
 
+export interface SandboxDecisionRow {
+  id: string;
+  user_id: string;
+  profile_id: string;
+  decision: string;
+  strategy: string;
+  score: number | null;
+  reasons_json: string | null;
+  created_at: number;
+}
+
 export interface SandboxStatus {
   available: boolean;
   initialized: boolean;
@@ -40,6 +65,8 @@ export interface SandboxStatus {
   profiles: number;
   outgoingLikes: number;
   incomingLikes: number;
+  passes: number;
+  decisions: number;
   matches: number;
   database: "connected" | "unavailable" | "uninitialized";
   environment: "local" | "vercel" | "unknown";
@@ -63,17 +90,56 @@ export interface SandboxLikeResult {
   } | null;
 }
 
+export interface SandboxDecisionResult {
+  decision: {
+    id: string;
+    userId: string;
+    profileId: string;
+    decision: SelectiveDecision;
+    strategy: StrategyKind;
+    score: number | null;
+    reasons: unknown;
+    createdAt: number;
+    created: boolean;
+  };
+  like: SandboxLikeResult["like"] | null;
+  match: SandboxLikeResult["match"];
+}
+
 export interface SandboxInspectData {
   currentUser: DemoProfile & { id: string };
   profiles: number;
   outgoingLikes: Array<{ id: string; toUserId: string; toName: string; createdAt: number }>;
   incomingLikes: Array<{ id: string; fromUserId: string; fromName: string; createdAt: number }>;
+  passes: Array<{
+    id: string;
+    profileId: string;
+    profileName: string;
+    score: number | null;
+    strategy: string;
+    createdAt: number;
+  }>;
+  decisions: Array<{
+    id: string;
+    profileId: string;
+    profileName: string;
+    decision: string;
+    strategy: string;
+    score: number | null;
+    createdAt: number;
+  }>;
   matches: Array<{
     id: string;
     profile: DemoProfile;
     matchedAt: number;
+    sessionId: string;
   }>;
   status: SandboxStatus;
+}
+
+function wantsChildrenFromRow(value: number | null): boolean | null {
+  if (value === null || value === undefined) return null;
+  return value === 1;
 }
 
 export function rowToProfile(row: SandboxUserRow): DemoProfile {
@@ -88,5 +154,11 @@ export function rowToProfile(row: SandboxUserRow): DemoProfile {
     avatarHue: row.avatar_hue,
     avatarVariant: row.avatar_variant,
     avatarStyle: row.avatar_style as AvatarStyle,
+    relationshipGoal: (row.relationship_goal || "open-to-see") as RelationshipGoal,
+    activityLevel: (row.activity_level || "moderate") as ActivityLevel,
+    smoking: (row.smoking || "never") as SmokingHabit,
+    drinking: (row.drinking || "socially") as DrinkingHabit,
+    hasChildren: Boolean(row.has_children),
+    wantsChildren: wantsChildrenFromRow(row.wants_children),
   };
 }

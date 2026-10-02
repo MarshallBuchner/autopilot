@@ -1,3 +1,4 @@
+import { DEFAULT_DATING_PREFERENCES } from "../src/lib/selective/types";
 /**
  * Smoke tests for SandboxAutomationAdapter against the real SQLite service
  * via a local fetch mock (no Next.js server required).
@@ -17,6 +18,7 @@ import {
   getSandboxStatus,
   initializeSandbox,
   listSandboxMatches,
+  recordSandboxDecision,
   resetSandbox,
 } from "../src/lib/sandbox/service";
 import { SANDBOX_CURRENT_USER_ID } from "../src/lib/sandbox/types";
@@ -71,6 +73,25 @@ before(() => {
         );
       }
     }
+    if (url.endsWith("/api/sandbox/decisions") && method === "POST") {
+      const body = init?.body ? JSON.parse(String(init.body)) : {};
+      try {
+        const result = recordSandboxDecision({
+          fromUserId: body.fromUserId ?? SANDBOX_CURRENT_USER_ID,
+          toUserId: body.toUserId,
+          decision: body.decision,
+          strategy: body.strategy,
+          score: body.score,
+          reasons: body.reasons,
+        });
+        return jsonResponse(result);
+      } catch (error) {
+        return jsonResponse(
+          { error: error instanceof Error ? error.message : "decision failed" },
+          400
+        );
+      }
+    }
     if (url.endsWith("/api/sandbox/matches") && method === "GET") {
       return jsonResponse({ matches: listSandboxMatches() });
     }
@@ -106,6 +127,7 @@ describe("SandboxAutomationAdapter", () => {
       actionDelaySeconds: 1,
       randomizeTiming: false,
       stopAfterMax: true,
+    preferences: { ...DEFAULT_DATING_PREFERENCES },
     });
 
     const deadline = Date.now() + 8_000;
@@ -131,6 +153,7 @@ describe("SandboxAutomationAdapter", () => {
       actionDelaySeconds: 1,
       randomizeTiming: false,
       stopAfterMax: true,
+    preferences: { ...DEFAULT_DATING_PREFERENCES },
     });
 
     const deadline = Date.now() + 10_000;
@@ -159,6 +182,7 @@ describe("SandboxAutomationAdapter", () => {
       actionDelaySeconds: 1,
       randomizeTiming: false,
       stopAfterMax: true,
+    preferences: { ...DEFAULT_DATING_PREFERENCES },
     });
 
     const deadline = Date.now() + 45_000;
@@ -185,6 +209,7 @@ describe("SandboxAutomationAdapter", () => {
       actionDelaySeconds: 1,
       randomizeTiming: false,
       stopAfterMax: true,
+    preferences: { ...DEFAULT_DATING_PREFERENCES },
     });
     await sleep(800);
     await adapter.stop();
@@ -212,6 +237,7 @@ describe("SandboxAutomationAdapter", () => {
       actionDelaySeconds: 1,
       randomizeTiming: false,
       stopAfterMax: true,
+    preferences: { ...DEFAULT_DATING_PREFERENCES },
     });
 
     const deadline = Date.now() + 25_000;

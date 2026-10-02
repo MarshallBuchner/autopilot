@@ -3,6 +3,7 @@
  * Run: npx tsx scripts/smoke-adapter.ts
  */
 import { DemoAutomationAdapter } from "../src/lib/automation/DemoAutomationAdapter";
+import { DEFAULT_DATING_PREFERENCES } from "../src/lib/selective/types";
 
 async function sleep(ms: number) {
   await new Promise((r) => setTimeout(r, ms));
@@ -37,6 +38,7 @@ async function main() {
     actionDelaySeconds: 1,
     randomizeTiming: false,
     stopAfterMax: true,
+    preferences: { ...DEFAULT_DATING_PREFERENCES },
   });
 
   // Wait enough for 5 profiles (load + like cycles)
@@ -66,6 +68,7 @@ async function main() {
     actionDelaySeconds: 1,
     randomizeTiming: true,
     stopAfterMax: true,
+    preferences: { ...DEFAULT_DATING_PREFERENCES },
   });
   await sleep(1500);
   await adapter.stop();

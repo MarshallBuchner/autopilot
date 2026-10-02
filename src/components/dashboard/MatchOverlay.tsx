@@ -7,9 +7,11 @@ import { ProfilePortrait } from "@/components/profile/ProfilePortrait";
 
 export function MatchOverlay({
   profile,
+  fitScore,
   onDismiss,
 }: {
   profile: DemoProfile;
+  fitScore?: number | null;
   onDismiss: () => void;
 }) {
   return (
@@ -54,6 +56,11 @@ export function MatchOverlay({
           {profile.firstName}, {profile.age}
         </div>
         <p className="mt-1 text-sm text-ap-text-muted">{profile.occupation}</p>
+        {typeof fitScore === "number" ? (
+          <p className="mt-3 text-[11px] uppercase tracking-[0.14em] text-ap-text-dim">
+            {fitScore}% fit · match from reciprocal likes
+          </p>
+        ) : null}
       </div>
     </div>
   );

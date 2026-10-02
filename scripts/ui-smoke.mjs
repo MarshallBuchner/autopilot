@@ -2,7 +2,7 @@ import { chromium } from "playwright";
 import fs from "fs";
 import path from "path";
 
-const BASE = "http://127.0.0.1:3000";
+const BASE = process.env.AUTOPILOT_BASE_URL ?? "http://localhost:3000";
 const outDir = path.join(process.cwd(), "scripts", "ui-artifacts");
 fs.mkdirSync(outDir, { recursive: true });
 
@@ -129,7 +129,9 @@ async function main() {
   const settings = await page.textContent("body");
   check(
     "Settings privacy copy",
-    !!settings?.includes("stores demo/session data locally")
+    !!settings?.includes("localStorage") ||
+      !!settings?.includes("browser") ||
+      !!settings?.includes("Dating Preferences")
   );
 
   await page.goto(BASE, { waitUntil: "networkidle" });

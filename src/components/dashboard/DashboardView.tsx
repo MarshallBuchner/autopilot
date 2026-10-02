@@ -1,6 +1,6 @@
 "use client";
 
-import { Eye, Heart, Sparkles, Percent, Play, Square } from "lucide-react";
+import { Eye, Heart, Sparkles, Percent, Play, Square, Ban, Gauge } from "lucide-react";
 import { useAutopilot } from "@/context/AutopilotProvider";
 import { KpiCard } from "@/components/dashboard/KpiCards";
 import { ProfileCard } from "@/components/dashboard/ProfileCard";
@@ -20,10 +20,14 @@ export function DashboardView() {
     stop,
     stats,
     currentProfile,
+    currentEvaluation,
     showLikeOverlay,
+    showPassOverlay,
     showCardExit,
+    cardExitDirection,
     showMatchCelebration,
     matchProfile,
+    matchFitScore,
     sessionComplete,
     dismissMatch,
     dismissSessionComplete,
@@ -31,7 +35,9 @@ export function DashboardView() {
     environment,
     canStart,
     startBlockedReason,
+    config,
   } = useAutopilot();
+  const selective = config.mode === "ai_selective";
 
   const statusLabel = isRunning
     ? "AUTOPILOT RUNNING"
@@ -115,9 +121,17 @@ export function DashboardView() {
       {/* Mobile: profile first. Desktop: KPIs then session grid */}
       <div className="grid grid-cols-1 gap-3 sm:gap-4 xl:grid-cols-12">
         {/* KPIs — after profile on mobile via order */}
-        <div className="order-2 grid grid-cols-2 gap-2 sm:gap-3 xl:order-1 xl:col-span-12 xl:grid-cols-4">
-          <KpiCard label="Profiles Viewed" value={stats.profilesViewed} icon={Eye} compact />
-          <KpiCard label="Likes Sent" value={stats.likesSent} icon={Heart} accent compact />
+        <div
+          className={cn(
+            "order-2 grid grid-cols-2 gap-2 sm:gap-3 xl:order-1 xl:col-span-12",
+            selective ? "xl:grid-cols-6" : "xl:grid-cols-4"
+          )}
+        >
+          <KpiCard label="Profiles" value={stats.profilesViewed} icon={Eye} compact />
+          <KpiCard label="Likes" value={stats.likesSent} icon={Heart} accent compact />
+          {selective ? (
+            <KpiCard label="Passes" value={stats.passes} icon={Ban} compact />
+          ) : null}
           <KpiCard
             label="Matches"
             value={stats.matches}
@@ -126,13 +140,23 @@ export function DashboardView() {
             compact
           />
           <KpiCard
-            label="Match Rate"
-            value={stats.matchRate * 100}
+            label={selective ? "Like Rate" : "Match Rate"}
+            value={(selective ? stats.likeRate : stats.matchRate) * 100}
             decimals={1}
             suffix="%"
             icon={Percent}
             compact
           />
+          {selective ? (
+            <KpiCard
+              label="Avg Fit"
+              value={stats.averageFitScore}
+              decimals={0}
+              suffix="%"
+              icon={Gauge}
+              compact
+            />
+          ) : null}
         </div>
 
         {/* Live session / profile — hero */}
@@ -140,8 +164,11 @@ export function DashboardView() {
           <ProfileCard
             profile={currentProfile}
             showLike={showLikeOverlay}
+            showPass={showPassOverlay}
             exiting={showCardExit}
+            exitDirection={cardExitDirection}
             isRunning={isRunning}
+            evaluation={currentEvaluation}
           />
         </div>
 
@@ -159,7 +186,11 @@ export function DashboardView() {
       </div>
 
       {showMatchCelebration && matchProfile ? (
-        <MatchOverlay profile={matchProfile} onDismiss={dismissMatch} />
+        <MatchOverlay
+          profile={matchProfile}
+          fitScore={matchFitScore}
+          onDismiss={dismissMatch}
+        />
       ) : null}
 
       {sessionComplete ? (

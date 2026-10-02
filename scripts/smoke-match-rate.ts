@@ -1,4 +1,5 @@
 import { DemoAutomationAdapter } from "../src/lib/automation/DemoAutomationAdapter";
+import { DEFAULT_DATING_PREFERENCES } from "../src/lib/selective/types";
 
 async function main() {
   const adapter = new DemoAutomationAdapter();
@@ -21,6 +22,7 @@ async function main() {
     actionDelaySeconds: 1,
     randomizeTiming: false,
     stopAfterMax: true,
+    preferences: { ...DEFAULT_DATING_PREFERENCES },
   });
   while (!done) await new Promise((r) => setTimeout(r, 100));
   const rate = matches / likes;

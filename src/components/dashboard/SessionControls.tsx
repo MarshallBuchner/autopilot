@@ -39,20 +39,28 @@ export function SessionControls() {
           </button>
           <button
             type="button"
-            disabled
-            className="cursor-not-allowed rounded-xl border border-ap-border-subtle px-3 py-3 text-left text-sm text-ap-text-dim opacity-60"
+            disabled={isRunning}
+            onClick={() => setConfig({ mode: "ai_selective" })}
+            className={cn(
+              "rounded-xl border px-3 py-3 text-left text-sm transition-colors",
+              config.mode === "ai_selective"
+                ? "border-ap-accent bg-ap-accent-soft text-ap-text"
+                : "border-ap-border text-ap-text-muted hover:border-ap-text-dim"
+            )}
           >
-            <div className="flex items-center gap-2 font-medium">
-              AI Selective
-              <span className="rounded border border-ap-border bg-ap-bg px-1.5 py-0.5 text-[10px] uppercase tracking-wider">
-                Coming later
-              </span>
-            </div>
-            <div className="mt-0.5 text-[11px]">
-              Use your preferences to decide who gets a Like.
+            <div className="font-medium">AI Selective</div>
+            <div className="mt-0.5 text-[11px] text-ap-text-dim">
+              Automatically evaluate profiles against your preferences.
             </div>
           </button>
         </div>
+        {config.mode === "ai_selective" ? (
+          <p className="mt-2 text-[11px] text-ap-text-dim leading-relaxed">
+            Uses your Dating Preferences (Settings). Threshold{" "}
+            <span className="text-ap-text-muted">{config.preferences.likeThreshold}%</span>.
+            Local heuristic — not an external AI model.
+          </p>
+        ) : null}
       </div>
 
       <div>

@@ -27,6 +27,8 @@ export default function SessionsPage() {
     return sessions.find((s) => s.id === id) ?? null;
   }, [sessions, selectedId]);
 
+  const comparison = useMemo(() => summarizeStrategies(sessions), [sessions]);
+
   if (!hydrated) {
     return <PageSkeleton title="Sessions" />;
   }
@@ -38,16 +40,24 @@ export default function SessionsPage() {
           Sessions
         </h1>
         <p className="text-ap-text-muted text-sm mt-1">
-          Completed demo runs stored locally in your browser.
+          Completed runs stored locally in your browser. Compare strategies — small
+          samples are not conclusive.
         </p>
       </header>
+
+      {sessions.length > 0 ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <StrategyCard title="LIKE EVERYONE" stats={comparison.likeEveryone} />
+          <StrategyCard title="AI SELECTIVE" stats={comparison.aiSelective} />
+        </div>
+      ) : null}
 
       {sessions.length === 0 ? (
         <div className="ap-card">
           <EmptyState
             icon={History}
             title="No previous sessions"
-            description="Run AUTOPILOT from the Dashboard. Completed demo runs are stored locally in your browser."
+            description="Run AUTOPILOT from the Dashboard. Completed runs are stored locally in your browser."
           />
         </div>
       ) : (
@@ -72,9 +82,15 @@ export default function SessionsPage() {
                     {formatDuration(session.durationMs)}
                   </span>
                 </div>
+                <div className="mt-1.5 text-[10px] uppercase tracking-wider text-ap-text-dim">
+                  {session.strategy === "AI_SELECTIVE" ? "AI Selective" : "Like Everyone"}
+                </div>
                 <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-ap-text-muted">
                   <span>{session.profilesViewed} profiles</span>
                   <span>{session.likesSent} likes</span>
+                  {session.strategy === "AI_SELECTIVE" ? (
+                    <span>{session.passes} passes</span>
+                  ) : null}
                   <span>{session.matches} matches</span>
                   <span>{formatMatchRate(session.matchRate)}</span>
                 </div>
@@ -91,7 +107,66 @@ export default function SessionsPage() {
   );
 }
 
+function summarizeStrategies(sessions: CompletedSession[]) {
+  const empty = {
+    sessions: 0,
+    profiles: 0,
+    likes: 0,
+    passes: 0,
+    matches: 0,
+    matchRate: 0,
+  };
+  const likeEveryone = { ...empty };
+  const aiSelective = { ...empty };
+
+  for (const s of sessions) {
+    const bucket = s.strategy === "AI_SELECTIVE" ? aiSelective : likeEveryone;
+    bucket.sessions += 1;
+    bucket.profiles += s.profilesViewed;
+    bucket.likes += s.likesSent;
+    bucket.passes += s.passes ?? 0;
+    bucket.matches += s.matches;
+  }
+  likeEveryone.matchRate =
+    likeEveryone.likes > 0 ? likeEveryone.matches / likeEveryone.likes : 0;
+  aiSelective.matchRate =
+    aiSelective.likes > 0 ? aiSelective.matches / aiSelective.likes : 0;
+  return { likeEveryone, aiSelective };
+}
+
+function StrategyCard({
+  title,
+  stats,
+}: {
+  title: string;
+  stats: {
+    sessions: number;
+    profiles: number;
+    likes: number;
+    passes: number;
+    matches: number;
+    matchRate: number;
+  };
+}) {
+  return (
+    <div className="ap-card p-4 space-y-2">
+      <div className="text-[11px] uppercase tracking-[0.14em] text-ap-text-dim">{title}</div>
+      {stats.sessions === 0 ? (
+        <p className="text-sm text-ap-text-muted">No sessions yet.</p>
+      ) : (
+        <div className="grid grid-cols-2 gap-2 text-sm">
+          <Metric label="Profiles" value={String(stats.profiles)} />
+          <Metric label="Likes" value={String(stats.likes)} />
+          <Metric label="Matches" value={String(stats.matches)} />
+          <Metric label="Match / like" value={formatMatchRate(stats.matchRate)} />
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SessionDetail({ session }: { session: CompletedSession }) {
+  const selective = session.strategy === "AI_SELECTIVE";
   return (
     <div className="ap-card p-5 space-y-5">
       <div>
@@ -102,12 +177,18 @@ function SessionDetail({ session }: { session: CompletedSession }) {
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <Metric label="Strategy" value={selective ? "AI Selective" : "Like Everyone"} />
         <Metric label="Date" value={formatDate(session.startedAt)} />
         <Metric label="Duration" value={formatDuration(session.durationMs)} />
-        <Metric label="Profiles viewed" value={String(session.profilesViewed)} />
+        <Metric label="Profiles" value={String(session.profilesViewed)} />
         <Metric label="Likes" value={String(session.likesSent)} />
+        <Metric label="Passes" value={String(session.passes ?? 0)} />
         <Metric label="Matches" value={String(session.matches)} />
-        <Metric label="Match rate" value={formatMatchRate(session.matchRate)} />
+        <Metric label="Match / like" value={formatMatchRate(session.matchRate)} />
+        <Metric
+          label="Avg fit"
+          value={selective ? `${Math.round(session.averageFitScore ?? 0)}%` : "—"}
+        />
       </div>
 
       <div className="h-48">
@@ -147,6 +228,18 @@ function SessionDetail({ session }: { session: CompletedSession }) {
               dot={false}
               isAnimationActive={false}
             />
+            {selective ? (
+              <Area
+                type="monotone"
+                dataKey="passes"
+                name="Passes"
+                stroke="#8b8b96"
+                fill="rgba(139,139,150,0.12)"
+                strokeWidth={2}
+                dot={false}
+                isAnimationActive={false}
+              />
+            ) : null}
             <Area
               type="monotone"
               dataKey="matches"
@@ -162,9 +255,10 @@ function SessionDetail({ session }: { session: CompletedSession }) {
       </div>
 
       <div className="text-xs text-ap-text-dim border-t border-ap-border-subtle pt-3">
-        Mode: Like Everyone · Max {session.config.maxProfiles} · Delay{" "}
-        {session.config.actionDelaySeconds}s
+        {selective ? "AI Selective" : "Like Everyone"} · Max {session.config.maxProfiles} ·
+        Delay {session.config.actionDelaySeconds}s
         {session.config.randomizeTiming ? " · Randomized" : ""}
+        {selective ? ` · Threshold ${session.config.preferences?.likeThreshold ?? 70}%` : ""}
       </div>
     </div>
   );
