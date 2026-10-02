@@ -1,13 +1,24 @@
 import type {
   AppSettings,
   CompletedSession,
+  DemoProfile,
   MatchRecord,
   PersistedState,
   PartialSessionSnapshot,
 } from "@/lib/types";
-import { DEFAULT_SETTINGS } from "@/lib/types";
+import { AVATAR_STYLES, DEFAULT_SETTINGS } from "@/lib/types";
 
 const STORAGE_KEY = "autopilot.v01.state";
+
+function normalizeProfile(profile: DemoProfile): DemoProfile {
+  const hue = profile.avatarHue ?? 320;
+  return {
+    ...profile,
+    avatarHue: hue,
+    avatarVariant: profile.avatarVariant ?? Math.abs(hue) % 12,
+    avatarStyle: profile.avatarStyle ?? AVATAR_STYLES[Math.abs(hue) % AVATAR_STYLES.length]!,
+  };
+}
 
 export function loadPersistedState(): PersistedState {
   if (typeof window === "undefined") {
@@ -17,10 +28,13 @@ export function loadPersistedState(): PersistedState {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return emptyState();
     const parsed = JSON.parse(raw) as Partial<PersistedState>;
+    const matches = Array.isArray(parsed.matches)
+      ? parsed.matches.map((m) => ({ ...m, profile: normalizeProfile(m.profile) }))
+      : [];
     return {
       settings: { ...DEFAULT_SETTINGS, ...parsed.settings },
       sessions: Array.isArray(parsed.sessions) ? parsed.sessions : [],
-      matches: Array.isArray(parsed.matches) ? parsed.matches : [],
+      matches,
       lastActiveSession: parsed.lastActiveSession ?? null,
     };
   } catch {

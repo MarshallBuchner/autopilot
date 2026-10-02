@@ -1,51 +1,61 @@
 # AUTOPILOT
 
-**An experimental local-first automation dashboard.**
+**I got tired of swiping, so I built AUTOPILOT.**
+
+An experimental local-first automation dashboard — a weekend project exploring what dating autopilot could look like as a polished product UI.
 
 > “Let it swipe. You do you.”
 
-AUTOPILOT is a polished V0.1 weekend project: a dark premium desktop dashboard for exploring automation UX — **entirely in Demo Mode**. It does not connect to Tinder or any dating platform.
-
----
-
-## Overview
-
-AUTOPILOT simulates a swipe/like loop with fictional profiles, live KPIs, an activity feed, session analytics, and local history. The UI is built against an `AutomationAdapter` interface so a future local helper could plug in without rewriting the dashboard.
-
-**This is a personal/open-source experiment, not a commercial SaaS.**
-
-| | |
-|---|---|
-| Stack | Next.js (App Router) · TypeScript · Tailwind CSS · Lucide · Recharts |
-| Persistence | `localStorage` only |
-| Auth / DB / paid APIs | None |
-| Deploy | Vercel-ready static/SSR Next app |
+**V0.2 is a simulation / demo.** It does not connect to Tinder, Bumble, Hinge, or any dating platform. No credentials, no scraping, no private APIs.
 
 ---
 
 ## Demo
 
-1. Open the **Dashboard**
-2. Choose max profiles & action delay
-3. Click **START AUTOPILOT**
-4. Watch the profile simulator, LIKE overlays, occasional **MATCH!** events, KPIs, and activity feed
-5. Stop manually or let it finish at the max profile limit
-6. Inspect **Sessions** / **Matches**, or **Export** JSON/CSV
+```bash
+npm install
+npm run dev
+```
 
-Everything you see is generated locally by `DemoAutomationAdapter`.
+Open [http://localhost:3000](http://localhost:3000), click **Launch demo**, then **START AUTOPILOT**.
+
+| | |
+|---|---|
+| Live app | _Add your deployment URL via `NEXT_PUBLIC_DEPLOY_URL`_ |
+| Source | [github.com/MarshallBuchner/autopilot](https://github.com/MarshallBuchner/autopilot) |
+
+_Screenshot tip: run a short session at ~1440×900 with delay ≈ 1–2s for a clean capture of LIKE / MATCH._
+
+---
+
+## What it does
+
+AUTOPILOT is a dark premium desktop dashboard that runs a local demo engine:
+
+1. Load fictional profiles
+2. Wait a configured delay (optionally randomized)
+3. Animate a **LIKE**
+4. Occasionally celebrate a simulated **MATCH**
+5. Track KPIs, activity, analytics, and session history in `localStorage`
+
+Everything stays in your browser.
 
 ---
 
 ## Features
 
-- **Dashboard** — start/stop, KPIs, session controls, live profile card, activity feed, analytics chart
-- **Like Everyone** simulation with configurable delay + optional randomized timing
-- **Simulated matches** (~5–12% probability)
-- **Sessions** — completed run history with charts
-- **Matches** — local match list + details panel
-- **Settings** — defaults, privacy copy, clear local data
-- **About** — disclaimer & architecture notes
-- Subtle motion: profile transitions, LIKE overlay, match celebration, KPI ticks, activity inserts, status pulse
+- Live AUTOPILOT session with illustrated demo profiles
+- START / STOP controls and green **AUTOPILOT RUNNING** status
+- Like Everyone simulation (AI Selective marked coming later)
+- Configurable max profiles, action delay, randomized timing
+- LIKE overlay + card exit motion
+- MATCH celebration overlay with short auto-continue
+- Session complete summary when the profile limit is hit
+- KPI strip, live activity feed, session analytics chart
+- Matches & Sessions pages with local history
+- JSON / CSV export and Reset Demo
+- First-visit landing intro
+- Responsive mobile layout (~390–430px)
 
 ---
 
@@ -60,85 +70,99 @@ UI (Dashboard / pages)
         ▼
  AutomationAdapter  (interface)
         │
-        ├── DemoAutomationAdapter   ← V0.1 (ships)
-        └── (future local adapter)  ← not implemented
+        └── DemoAutomationAdapter   ← V0.2 (ships)
 ```
 
-### `AutomationAdapter`
+The adapter abstraction exists so the dashboard never embeds simulator timers directly. A future **user-owned** local helper could implement the same contract without rewriting the UI. That adapter is **not** included — and this repo does not implement real dating-platform automation.
 
 | Method | Role |
 |---|---|
 | `connect()` / `disconnect()` | Lifecycle |
 | `start(config)` / `stop()` | Session control |
-| `getStatus()` | `disconnected` · `connected` · `running` · `stopped` · `error` |
+| `getStatus()` | Adapter status |
 
-| Event | Payload |
+| Event | Meaning |
 |---|---|
-| `profileLoaded` | Demo profile |
-| `actionPerformed` | `{ profile, action: "like" }` |
-| `matchDetected` | Demo profile |
-| `statusChanged` | Adapter status |
-| `sessionComplete` | `{ reason }` |
-| `error` | `{ message }` |
-
-The dashboard **never** embeds simulator timers directly — it only listens to adapter events.
-
-> **Important:** The included V0.1 adapter is **simulation-only**. It does not scrape profiles, call private APIs, bypass anti-bot systems, or automate a real dating account.
+| `profileLoaded` | New demo profile |
+| `actionPerformed` | Simulated like |
+| `matchDetected` | Simulated match |
+| `sessionComplete` | Stopped or max reached |
 
 ---
 
-## Local Development
+## Tech stack
+
+- Next.js 16 (App Router)
+- TypeScript
+- Tailwind CSS
+- Lucide icons
+- Recharts
+- `localStorage` persistence
+
+No database. No auth. No paid APIs. No required backend.
+
+---
+
+## Running locally
 
 ```bash
 npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Quality checks:
 
 ```bash
 npm run lint
-npx tsc --noEmit
+npm run typecheck
 npm run build
 ```
 
-Deploy to Vercel with the default Next.js preset — no env vars required.
+Optional smoke scripts:
+
+```bash
+npx tsx scripts/smoke-adapter.ts
+npx tsx scripts/smoke-match-rate.ts
+# UI smoke (requires Playwright + a running server on :3000)
+npx playwright install chromium
+node scripts/ui-smoke.mjs
+```
+
+Env (optional):
+
+```bash
+NEXT_PUBLIC_GITHUB_URL=https://github.com/MarshallBuchner/autopilot
+NEXT_PUBLIC_DEPLOY_URL=https://your-deployment.example
+```
 
 ---
 
 ## Privacy
 
-AUTOPILOT stores demo/session data locally in your browser (`localStorage`). No account credentials are collected by this V0.1 build. Clear everything from **Settings → Clear local data**.
+V0.2 is local / browser-based. Demo session data lives in `localStorage`. No account credentials are collected. Clear everything from **Settings → Clear local data**.
 
 ---
 
 ## Disclaimer
 
-AUTOPILOT is an **unofficial experimental project**.
+AUTOPILOT is an **independent experimental project**.
 
-It is **not affiliated with, endorsed by, or sponsored by** Tinder, Match Group, Bumble, Hinge, or any dating platform.
+It is **not affiliated with, endorsed by, or sponsored by** Tinder, Match Group, Bumble, Hinge, or any other dating platform.
 
-V0.1 operates **entirely in simulation mode** and does not interact with third-party dating services.
-
-Do **not** use Tinder logos or copyrighted screenshots/assets with this project. The AUTOPILOT mark is an original abstract navigation/automation identity.
+Do not use third-party trademarks or copyrighted dating-app assets with this project. The AUTOPILOT mark is an original abstract navigation / automation identity.
 
 ---
 
 ## Roadmap
 
-### V0.2 (ideas)
+Modest next steps:
 
-- AI Selective mode (still demo-first, or offline heuristics)
-- Richer fictional profile generators
-- Session comparison / trends across history
-- Import/export of full local archive
-- Optional adapter stubs / docs for a *user-owned* local helper — still no unofficial API reverse-engineering in-repo
+- Richer simulation detail
+- AI Selective **demo** mode
+- Session comparisons / trends
+- Additional local experimentation around the adapter surface
 
-### Explicitly out of scope for V0.1
-
-- Real dating-platform connections
-- Scraping / private API clients
-- Accounts, cloud sync, or paid services
+This roadmap does **not** promise real dating-platform automation.
 
 ---
 

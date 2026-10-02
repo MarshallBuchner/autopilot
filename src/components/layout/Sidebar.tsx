@@ -41,7 +41,7 @@ export function Sidebar() {
           <div className="font-[family-name:var(--font-syne)] text-lg font-bold tracking-tight text-ap-text leading-none">
             AUTOPILOT
           </div>
-          <div className="text-[11px] text-ap-text-dim mt-1 tracking-wide">v0.1</div>
+          <div className="mt-1 text-[11px] tracking-wide text-ap-text-dim">v0.2</div>
         </div>
       </div>
 

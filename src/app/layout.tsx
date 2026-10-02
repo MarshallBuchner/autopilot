@@ -24,7 +24,7 @@ const jetbrains = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "AUTOPILOT — Local Experiment",
   description:
-    "An experimental local-first automation dashboard. V0.1 runs entirely in Demo Mode.",
+    "An experimental local-first automation dashboard. V0.2 runs entirely in Demo Mode.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

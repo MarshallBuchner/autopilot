@@ -10,7 +10,9 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { History } from "lucide-react";
 import { useAutopilot } from "@/context/AutopilotProvider";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { formatDate, formatDuration, formatMatchRate } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import type { CompletedSession } from "@/lib/types";
@@ -41,8 +43,12 @@ export default function SessionsPage() {
       </header>
 
       {sessions.length === 0 ? (
-        <div className="ap-card p-10 text-center text-ap-text-muted text-sm">
-          No completed sessions yet. Run AUTOPILOT from the Dashboard to create history.
+        <div className="ap-card">
+          <EmptyState
+            icon={History}
+            title="No previous sessions"
+            description="Run AUTOPILOT from the Dashboard. Completed demo runs are stored locally in your browser."
+          />
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">

@@ -2,6 +2,8 @@ export type AutomationMode = "like_everyone" | "ai_selective";
 
 export type AdapterStatus = "disconnected" | "connected" | "running" | "stopped" | "error";
 
+export type AvatarStyle = "soft" | "studio" | "warm" | "cool" | "dusk" | "mint";
+
 export interface DemoProfile {
   id: string;
   firstName: string;
@@ -10,8 +12,12 @@ export interface DemoProfile {
   occupation: string;
   bio: string;
   interests: string[];
-  /** Deterministic hue for abstract avatar gradient */
+  /** Deterministic hue for portrait palette */
   avatarHue: number;
+  /** Portrait illustration variant 0–11 */
+  avatarVariant: number;
+  /** Visual style family for background/lighting */
+  avatarStyle: AvatarStyle;
 }
 
 export interface SessionConfig {
@@ -88,6 +94,13 @@ export interface PartialSessionSnapshot {
   running: boolean;
 }
 
+export type SessionCompleteReason = "max_profiles" | "stopped" | "error";
+
+export interface SessionCompleteSummary {
+  reason: SessionCompleteReason;
+  session: CompletedSession;
+}
+
 export const DEFAULT_SETTINGS: AppSettings = {
   defaultMaxProfiles: 50,
   defaultDelaySeconds: 3,
@@ -102,3 +115,12 @@ export const DEFAULT_CONFIG: SessionConfig = {
   randomizeTiming: true,
   stopAfterMax: true,
 };
+
+export const AVATAR_STYLES: AvatarStyle[] = [
+  "soft",
+  "studio",
+  "warm",
+  "cool",
+  "dusk",
+  "mint",
+];

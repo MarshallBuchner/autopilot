@@ -12,7 +12,7 @@ type ListenerMap = {
 };
 
 /**
- * V0.1 simulation-only adapter.
+ * Simulation-only adapter (V0.1 / V0.2).
  * Emits realistic profile/like/match events on a timer.
  * Does not contact any third-party dating service.
  */
@@ -44,7 +44,7 @@ export class DemoAutomationAdapter implements AutomationAdapter {
     }
     if (config.mode !== "like_everyone") {
       this.emit("error", {
-        message: "AI Selective mode is coming later. Use Like Everyone for V0.1.",
+        message: "AI Selective mode is coming later. Use Like Everyone for V0.2.",
       });
       return;
     }
@@ -151,13 +151,18 @@ export class DemoAutomationAdapter implements AutomationAdapter {
       this.profilesProcessed += 1;
       this.emit("actionPerformed", { profile, action: "like" });
 
-      // ~5–12% match probability (seeded-ish via random)
+      // ~5–12% match probability
       const matchChance = 0.05 + Math.random() * 0.07;
-      if (Math.random() < matchChance) {
+      const matched = Math.random() < matchChance;
+      if (matched) {
         this.emit("matchDetected", profile);
       }
 
-      this.scheduleNext(Math.min(900, this.delayMs() * 0.35));
+      // Leave room for LIKE exit animation; longer pause after a match celebration
+      const exitMs = 700;
+      const matchPauseMs = matched ? 2000 : 0;
+      const baseGap = Math.min(1100, Math.max(500, this.delayMs() * 0.35));
+      this.scheduleNext(baseGap + exitMs + matchPauseMs);
     }
   }
 }

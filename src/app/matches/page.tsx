@@ -1,11 +1,13 @@
 "use client";
 
 import { useMemo } from "react";
+import { Heart, X } from "lucide-react";
 import { useAutopilot } from "@/context/AutopilotProvider";
+import { ProfilePortrait } from "@/components/profile/ProfilePortrait";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { formatRelativeMinutes } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import type { MatchRecord } from "@/lib/types";
-import { X } from "lucide-react";
 
 export default function MatchesPage() {
   const { matches, hydrated, selectedMatchId, setSelectedMatchId } = useAutopilot();
@@ -32,15 +34,18 @@ export default function MatchesPage() {
         <h1 className="font-[family-name:var(--font-syne)] text-3xl font-bold tracking-tight">
           Matches
         </h1>
-        <p className="text-ap-text-muted text-sm mt-1">
-          Simulated matches from demo sessions. No messaging in V0.1.
+        <p className="mt-1 text-sm text-ap-text-muted">
+          Simulated matches from demo sessions. No messaging in V0.2.
         </p>
       </header>
 
       {matches.length === 0 ? (
-        <div className="ap-card p-10 text-center text-ap-text-muted text-sm">
-          No matches yet. Keep the simulator running — matches appear at roughly 5–12%
-          probability.
+        <div className="ap-card">
+          <EmptyState
+            icon={Heart}
+            title="No matches yet"
+            description="Keep the simulator running — matches appear at roughly 5–12% probability and are saved locally."
+          />
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
@@ -89,13 +94,8 @@ export default function MatchesPage() {
 
 function MatchAvatar({ profile }: { profile: MatchRecord["profile"] }) {
   return (
-    <div
-      className="h-12 w-12 sm:h-14 sm:w-14 rounded-xl shrink-0 flex items-center justify-center font-[family-name:var(--font-syne)] text-lg font-bold text-white/80"
-      style={{
-        background: `linear-gradient(145deg, hsl(${profile.avatarHue}, 45%, 35%), hsl(${(profile.avatarHue + 40) % 360}, 30%, 16%))`,
-      }}
-    >
-      {profile.firstName.slice(0, 1)}
+    <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl sm:h-14 sm:w-14">
+      <ProfilePortrait profile={profile} compact className="h-full rounded-xl" />
     </div>
   );
 }

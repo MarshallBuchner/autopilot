@@ -29,6 +29,7 @@ import type {
   CompletedSession,
   DemoProfile,
   MatchRecord,
+  SessionCompleteSummary,
   SessionConfig,
   SessionStats,
 } from "@/lib/types";
@@ -75,7 +76,10 @@ interface AutopilotContextValue {
   updateSettings: (patch: Partial<AppSettings>) => void;
   currentProfile: DemoProfile | null;
   showLikeOverlay: boolean;
+  showCardExit: boolean;
   showMatchCelebration: boolean;
+  matchProfile: DemoProfile | null;
+  sessionComplete: SessionCompleteSummary | null;
   stats: SessionStats;
   activity: ActivityEvent[];
   sessions: CompletedSession[];
@@ -87,6 +91,8 @@ interface AutopilotContextValue {
   resetDemo: () => void;
   exportResults: (format: "json" | "csv") => void;
   clearAllData: () => void;
+  dismissMatch: () => void;
+  dismissSessionComplete: () => void;
   selectedMatchId: string | null;
   setSelectedMatchId: (id: string | null) => void;
 }
@@ -101,7 +107,11 @@ export function AutopilotProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<AppSettings>({ ...DEFAULT_SETTINGS });
   const [currentProfile, setCurrentProfile] = useState<DemoProfile | null>(null);
   const [showLikeOverlay, setShowLikeOverlay] = useState(false);
+  const [showCardExit, setShowCardExit] = useState(false);
   const [showMatchCelebration, setShowMatchCelebration] = useState(false);
+  const [matchProfile, setMatchProfile] = useState<DemoProfile | null>(null);
+  const [sessionComplete, setSessionComplete] =
+    useState<SessionCompleteSummary | null>(null);
   const [stats, setStats] = useState<SessionStats>(emptyStats());
   const [activity, setActivity] = useState<ActivityEvent[]>([]);
   const [sessions, setSessions] = useState<CompletedSession[]>([]);
@@ -109,6 +119,7 @@ export function AutopilotProvider({ children }: { children: ReactNode }) {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [sessionStartedAt, setSessionStartedAt] = useState<number | null>(null);
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
+  const exitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const statsRef = useRef(stats);
   const sessionIdRef = useRef(sessionId);
@@ -212,6 +223,10 @@ export function AutopilotProvider({ children }: { children: ReactNode }) {
         })
       );
 
+      if (reason === "max_profiles") {
+        setSessionComplete({ reason, session: { ...completed, durationMs } });
+      }
+
       // Defer persist to next tick so refs settle
       setTimeout(() => persist(), 0);
     },
@@ -261,6 +276,8 @@ export function AutopilotProvider({ children }: { children: ReactNode }) {
       adapter.on("profileLoaded", (profile) => {
         if (cancelled) return;
         setShowLikeOverlay(false);
+        setShowCardExit(false);
+        if (exitTimerRef.current) clearTimeout(exitTimerRef.current);
         setCurrentProfile(profile);
         setStats((prev) => ({
           ...prev,
@@ -277,8 +294,14 @@ export function AutopilotProvider({ children }: { children: ReactNode }) {
       adapter.on("actionPerformed", ({ profile }) => {
         if (cancelled) return;
         setShowLikeOverlay(true);
+        setShowCardExit(false);
         if (likeTimerRef.current) clearTimeout(likeTimerRef.current);
-        likeTimerRef.current = setTimeout(() => setShowLikeOverlay(false), 700);
+        if (exitTimerRef.current) clearTimeout(exitTimerRef.current);
+        // LIKE stamp, then exit toward the right before next profile
+        likeTimerRef.current = setTimeout(() => {
+          setShowLikeOverlay(false);
+          setShowCardExit(true);
+        }, 480);
 
         setStats((prev) => {
           const likesSent = prev.likesSent + 1;
@@ -305,9 +328,13 @@ export function AutopilotProvider({ children }: { children: ReactNode }) {
       }),
       adapter.on("matchDetected", (profile) => {
         if (cancelled) return;
+        setMatchProfile(profile);
         setShowMatchCelebration(true);
         if (matchTimerRef.current) clearTimeout(matchTimerRef.current);
-        matchTimerRef.current = setTimeout(() => setShowMatchCelebration(false), 1600);
+        matchTimerRef.current = setTimeout(() => {
+          setShowMatchCelebration(false);
+          setMatchProfile(null);
+        }, 2200);
 
         const sid = sessionIdRef.current ?? "unknown";
         const record: MatchRecord = {
@@ -374,10 +401,13 @@ export function AutopilotProvider({ children }: { children: ReactNode }) {
       window.clearTimeout(unlock);
       unsubs.forEach((u) => u());
       void adapter.disconnect();
-      if (likeTimerRef.current) clearTimeout(likeTimerRef.current);
-      if (matchTimerRef.current) clearTimeout(matchTimerRef.current);
-      if (durationTimerRef.current) clearInterval(durationTimerRef.current);
+      clearTimeout(likeTimerRef.current ?? undefined);
+      clearTimeout(exitTimerRef.current ?? undefined);
+      clearTimeout(matchTimerRef.current ?? undefined);
+      clearInterval(durationTimerRef.current ?? undefined);
     };
+  // Timer refs are mutated during the session; empty deps keep adapter wiring once.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Persist settings / sessions / matches when they change (after hydrate)
@@ -435,7 +465,10 @@ export function AutopilotProvider({ children }: { children: ReactNode }) {
     setStats(emptyStats());
     setCurrentProfile(null);
     setShowLikeOverlay(false);
+    setShowCardExit(false);
     setShowMatchCelebration(false);
+    setMatchProfile(null);
+    setSessionComplete(null);
     setActivity([
       {
         id: makeId("evt"),
@@ -467,7 +500,10 @@ export function AutopilotProvider({ children }: { children: ReactNode }) {
     }
     setCurrentProfile(null);
     setShowLikeOverlay(false);
+    setShowCardExit(false);
     setShowMatchCelebration(false);
+    setMatchProfile(null);
+    setSessionComplete(null);
     setStats(emptyStats());
     setActivity([]);
     setSessionId(null);
@@ -488,6 +524,16 @@ export function AutopilotProvider({ children }: { children: ReactNode }) {
       matches: matchesRef.current,
       lastActiveSession: null,
     });
+  }, []);
+
+  const dismissMatch = useCallback(() => {
+    if (matchTimerRef.current) clearTimeout(matchTimerRef.current);
+    setShowMatchCelebration(false);
+    setMatchProfile(null);
+  }, []);
+
+  const dismissSessionComplete = useCallback(() => {
+    setSessionComplete(null);
   }, []);
 
   const exportResults = useCallback((format: "json" | "csv") => {
@@ -547,6 +593,11 @@ export function AutopilotProvider({ children }: { children: ReactNode }) {
     setStats(emptyStats());
     setActivity([]);
     setCurrentProfile(null);
+    setShowLikeOverlay(false);
+    setShowCardExit(false);
+    setShowMatchCelebration(false);
+    setMatchProfile(null);
+    setSessionComplete(null);
     setSessionId(null);
     setSessionStartedAt(null);
     setSelectedMatchId(null);
@@ -567,7 +618,10 @@ export function AutopilotProvider({ children }: { children: ReactNode }) {
       updateSettings,
       currentProfile,
       showLikeOverlay,
+      showCardExit,
       showMatchCelebration,
+      matchProfile,
+      sessionComplete,
       stats,
       activity,
       sessions,
@@ -579,6 +633,8 @@ export function AutopilotProvider({ children }: { children: ReactNode }) {
       resetDemo,
       exportResults,
       clearAllData,
+      dismissMatch,
+      dismissSessionComplete,
       selectedMatchId,
       setSelectedMatchId,
     }),
@@ -591,7 +647,10 @@ export function AutopilotProvider({ children }: { children: ReactNode }) {
       updateSettings,
       currentProfile,
       showLikeOverlay,
+      showCardExit,
       showMatchCelebration,
+      matchProfile,
+      sessionComplete,
       stats,
       activity,
       sessions,
@@ -603,6 +662,8 @@ export function AutopilotProvider({ children }: { children: ReactNode }) {
       resetDemo,
       exportResults,
       clearAllData,
+      dismissMatch,
+      dismissSessionComplete,
       selectedMatchId,
     ]
   );

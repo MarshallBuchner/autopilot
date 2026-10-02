@@ -33,7 +33,7 @@ export function SessionControls() {
             )}
           >
             <div className="font-medium">Like Everyone</div>
-            <div className="text-[11px] text-ap-text-dim mt-0.5">V0.1 simulation</div>
+            <div className="mt-0.5 text-[11px] text-ap-text-dim">V0.2 simulation</div>
           </button>
           <button
             type="button"
@@ -46,7 +46,7 @@ export function SessionControls() {
                 Coming later
               </span>
             </div>
-            <div className="text-[11px] mt-0.5">Not available in V0.1</div>
+            <div className="mt-0.5 text-[11px]">Not available in V0.2</div>
           </button>
         </div>
       </div>
