@@ -45,7 +45,7 @@ export function DashboardView() {
               AUTOPILOT
             </h1>
             <span className="rounded-md border border-ap-border bg-ap-card px-2 py-1 text-[10px] uppercase tracking-[0.14em] text-ap-text-muted">
-              Local Experiment
+              Demo Mode
             </span>
           </div>
           <p className="text-sm text-ap-text-muted sm:text-base">Let it swipe. You do you.</p>

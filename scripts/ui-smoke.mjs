@@ -33,7 +33,7 @@ async function main() {
   const body = await page.textContent("body");
   check("Brand AUTOPILOT", !!body?.includes("AUTOPILOT"));
   check("Subtitle", !!body?.includes("Let it swipe. You do you."));
-  check("Local Experiment badge", !!body?.toLowerCase().includes("local experiment"));
+  check("Demo Mode badge", !!body?.toLowerCase().includes("demo mode"));
   check("Sidebar Dashboard", !!body?.includes("Dashboard"));
   check("Sidebar Sessions", !!body?.includes("Sessions"));
   check("Demo engine connected", !!body?.includes("Demo engine connected"));
@@ -102,8 +102,8 @@ async function main() {
   await page.reload({ waitUntil: "networkidle" });
   // Intro should stay dismissed
   await page.waitForTimeout(400);
-  if (await page.getByRole("button", { name: /Launch demo/i }).count()) {
-    await page.getByRole("button", { name: /Launch demo/i }).click();
+  if (await page.getByRole("button", { name: /Launch AUTOPILOT/i }).count()) {
+    await page.getByRole("button", { name: /Launch AUTOPILOT/i }).click();
   }
   await page.waitForFunction(
     () => document.body.innerText.includes("Demo engine connected"),
@@ -122,7 +122,7 @@ async function main() {
 
   const about = await page.textContent("body");
   check("About disclaimer Tinder", !!about?.includes("Tinder"));
-  check("About simulation engine", !!about?.includes("simulation"));
+  check("About Demo Mode section", !!about?.includes("Demo Mode"));
   await page.screenshot({ path: path.join(outDir, "about.png"), fullPage: true });
 
   await page.goto(BASE + "/settings", { waitUntil: "networkidle" });
@@ -134,8 +134,8 @@ async function main() {
 
   await page.goto(BASE, { waitUntil: "networkidle" });
   await page.waitForTimeout(400);
-  if (await page.getByRole("button", { name: /Launch demo/i }).count()) {
-    await page.getByRole("button", { name: /Launch demo/i }).click();
+  if (await page.getByRole("button", { name: /Launch AUTOPILOT/i }).count()) {
+    await page.getByRole("button", { name: /Launch AUTOPILOT/i }).click();
   }
   await page.waitForFunction(
     () => document.body.innerText.includes("Demo engine connected"),
@@ -164,8 +164,8 @@ async function main() {
   // Session complete path: custom max 3
   await page.evaluate(() => localStorage.removeItem("autopilot.v01.state"));
   await page.reload({ waitUntil: "networkidle" });
-  if (await page.getByRole("button", { name: /Launch demo/i }).count()) {
-    await page.getByRole("button", { name: /Launch demo/i }).click();
+  if (await page.getByRole("button", { name: /Launch AUTOPILOT/i }).count()) {
+    await page.getByRole("button", { name: /Launch AUTOPILOT/i }).click();
   }
   await page.waitForFunction(
     () => document.body.innerText.includes("Demo engine connected"),

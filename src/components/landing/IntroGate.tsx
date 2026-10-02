@@ -2,7 +2,7 @@
 
 import { startTransition, useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Lock, Sparkles, MonitorSmartphone, Code2 } from "lucide-react";
+import { ArrowRight, FlaskConical, MonitorSmartphone, Code2 } from "lucide-react";
 import { AutopilotMark } from "@/components/brand/AutopilotMark";
 import { SITE } from "@/lib/site";
 
@@ -65,13 +65,8 @@ export function IntroGate({ children }: { children: React.ReactNode }) {
       <div className="relative mx-auto flex min-h-screen max-w-5xl flex-col px-5 py-10 sm:px-8 lg:py-16">
         <div className="mb-10 flex items-center gap-3">
           <AutopilotMark className="h-9 w-9" />
-          <div>
-            <div className="font-[family-name:var(--font-syne)] text-sm font-bold tracking-tight">
-              AUTOPILOT
-            </div>
-            <div className="text-[11px] text-ap-text-dim">
-              {SITE.version} · local experiment
-            </div>
+          <div className="font-[family-name:var(--font-syne)] text-sm font-bold tracking-tight">
+            AUTOPILOT
           </div>
         </div>
 
@@ -82,8 +77,7 @@ export function IntroGate({ children }: { children: React.ReactNode }) {
             </h1>
             <p className="mt-3 text-lg text-ap-text-muted sm:text-xl">{SITE.tagline}</p>
             <p className="mt-4 max-w-md text-sm leading-relaxed text-ap-text-dim sm:text-base">
-              A weekend experiment exploring what dating autopilot could look like —
-              currently powered by a local simulation engine.
+              An experimental open-source dating automation dashboard.
             </p>
 
             <div className="mt-7 flex flex-wrap gap-3">
@@ -92,7 +86,7 @@ export function IntroGate({ children }: { children: React.ReactNode }) {
                 onClick={dismiss}
                 className="inline-flex items-center gap-2 rounded-xl bg-ap-accent px-5 py-3 text-sm font-semibold text-white shadow-[0_0_28px_var(--ap-accent-glow)] transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ap-accent"
               >
-                Launch demo
+                Launch AUTOPILOT
                 <ArrowRight className="h-4 w-4" />
               </button>
               <a
@@ -108,10 +102,9 @@ export function IntroGate({ children }: { children: React.ReactNode }) {
 
             <div className="mt-8 flex flex-wrap gap-2">
               {[
-                { label: "Local", icon: MonitorSmartphone },
-                { label: "Private", icon: Lock },
-                { label: "Simulation only", icon: Sparkles },
+                { label: "Local first", icon: MonitorSmartphone },
                 { label: "Open source", icon: Code2 },
+                { label: "Experimental", icon: FlaskConical },
               ].map(({ label, icon: Icon }) => (
                 <span
                   key={label}
@@ -127,15 +120,15 @@ export function IntroGate({ children }: { children: React.ReactNode }) {
           <div className="ap-card relative w-full max-w-md overflow-hidden p-4 ap-animate-fade-up sm:p-5">
             <div className="mb-3 flex items-center justify-between text-[11px] uppercase tracking-[0.14em] text-ap-text-dim">
               <span>Dashboard preview</span>
-              <span className="text-ap-success">Demo engine</span>
+              <span className="text-ap-accent">Demo Mode</span>
             </div>
             <div className="rounded-xl border border-ap-border-subtle bg-ap-bg p-4">
               <div className="font-[family-name:var(--font-syne)] text-lg font-semibold">
                 Live AUTOPILOT session
               </div>
               <p className="mt-1 text-xs text-ap-text-muted">
-                Watch fictional profiles load, get liked, and occasionally match —
-                entirely in your browser.
+                Start a session, watch profiles move through the loop, and track matches in
+                real time.
               </p>
               <div className="mt-4 grid grid-cols-2 gap-2 text-center">
                 {[
@@ -156,9 +149,6 @@ export function IntroGate({ children }: { children: React.ReactNode }) {
                 ))}
               </div>
             </div>
-            <p className="mt-3 text-center text-[11px] text-ap-text-dim">
-              No dating credentials. No scraping. Simulation only.
-            </p>
           </div>
         </div>
 

@@ -22,12 +22,9 @@ export function ProfileCard({
         <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-ap-border-subtle bg-ap-bg">
           <div className="h-2 w-2 rounded-full bg-ap-text-dim" />
         </div>
-        <p className="max-w-[240px] text-sm text-ap-text-muted">
-          Press <span className="text-ap-text">START AUTOPILOT</span> to begin the live
-          simulation.
-        </p>
-        <p className="mt-2 max-w-[260px] text-xs text-ap-text-dim">
-          Fictional demo profiles will appear here — no real accounts involved.
+        <p className="max-w-[240px] text-sm font-medium text-ap-text">Ready when you are.</p>
+        <p className="mt-2 max-w-[260px] text-xs text-ap-text-muted">
+          Start AUTOPILOT to begin a Demo Mode session.
         </p>
       </div>
     );

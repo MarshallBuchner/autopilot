@@ -15,38 +15,42 @@ export function SessionControls() {
         <h2 className="font-[family-name:var(--font-syne)] text-base font-semibold tracking-tight">
           Session Controls
         </h2>
-        <p className="text-xs text-ap-text-muted mt-1">Configure the demo simulation loop.</p>
+        <p className="mt-1 text-xs text-ap-text-muted">Configure your AUTOPILOT session.</p>
       </div>
 
       <div>
-        <div className="text-xs uppercase tracking-wide text-ap-text-dim mb-2">Mode</div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <div className="mb-2 text-xs uppercase tracking-wide text-ap-text-dim">Mode</div>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           <button
             type="button"
             disabled={isRunning}
             onClick={() => setConfig({ mode: "like_everyone" })}
             className={cn(
-              "rounded-xl px-3 py-3 text-left text-sm border transition-colors",
+              "rounded-xl border px-3 py-3 text-left text-sm transition-colors",
               config.mode === "like_everyone"
                 ? "border-ap-accent bg-ap-accent-soft text-ap-text"
                 : "border-ap-border text-ap-text-muted hover:border-ap-text-dim"
             )}
           >
             <div className="font-medium">Like Everyone</div>
-            <div className="mt-0.5 text-[11px] text-ap-text-dim">V0.2 simulation</div>
+            <div className="mt-0.5 text-[11px] text-ap-text-dim">
+              Automatically like each profile.
+            </div>
           </button>
           <button
             type="button"
             disabled
-            className="rounded-xl px-3 py-3 text-left text-sm border border-ap-border-subtle text-ap-text-dim opacity-60 cursor-not-allowed"
+            className="cursor-not-allowed rounded-xl border border-ap-border-subtle px-3 py-3 text-left text-sm text-ap-text-dim opacity-60"
           >
-            <div className="font-medium flex items-center gap-2">
+            <div className="flex items-center gap-2 font-medium">
               AI Selective
-              <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-ap-bg border border-ap-border">
+              <span className="rounded border border-ap-border bg-ap-bg px-1.5 py-0.5 text-[10px] uppercase tracking-wider">
                 Coming later
               </span>
             </div>
-            <div className="mt-0.5 text-[11px]">Not available in V0.2</div>
+            <div className="mt-0.5 text-[11px]">
+              Use your preferences to decide who gets a Like.
+            </div>
           </button>
         </div>
       </div>

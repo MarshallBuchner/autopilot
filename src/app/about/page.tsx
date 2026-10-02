@@ -12,7 +12,7 @@ export default function AboutPage() {
             AUTOPILOT
           </h1>
           <p className="mt-1 text-sm text-ap-text-muted sm:text-base">
-            An experimental local-first automation dashboard.
+            An experimental open-source dating automation dashboard.
           </p>
           <p className="mt-1 text-xs text-ap-text-dim">{SITE.version}</p>
         </div>
@@ -25,10 +25,8 @@ export default function AboutPage() {
           automation surface.
         </p>
         <p>
-          <span className="font-medium text-ap-text">V0.2 runs entirely through a local
-          simulation engine.</span>{" "}
-          No dating-platform credentials are required. No real dating accounts are accessed.
-          No profiles are scraped. No third-party dating APIs are called.
+          AUTOPILOT supports isolated demo and sandbox environments. Demo Mode uses
+          fictional profiles and does not access third-party dating accounts.
         </p>
         <p>
           AUTOPILOT is an independent experimental project and is{" "}
@@ -41,16 +39,27 @@ export default function AboutPage() {
 
       <section className="ap-card space-y-3 p-5 text-sm">
         <h2 className="font-[family-name:var(--font-syne)] text-base font-semibold text-ap-text">
-          Architecture
+          Demo Mode
         </h2>
         <p className="leading-relaxed text-ap-text-muted">
-          The dashboard speaks to an{" "}
-          <code className="text-xs text-ap-accent">AutomationAdapter</code> interface. V0.2
-          ships{" "}
-          <code className="text-xs text-ap-accent">DemoAutomationAdapter</code> only — a
-          local simulator that emits profile, like, and match events. Another local adapter
-          could theoretically implement the same contract later without rewriting the UI.
-          That real-world adapter is intentionally not included.
+          Uses <code className="text-xs text-ap-accent">DemoAutomationAdapter</code> and
+          fictional profiles for a completely local demonstration of the AUTOPILOT
+          experience. No dating-platform credentials are required, no real accounts are
+          accessed, and no third-party dating APIs are called.
+        </p>
+      </section>
+
+      <section className="ap-card space-y-3 p-5 text-sm">
+        <h2 className="font-[family-name:var(--font-syne)] text-base font-semibold text-ap-text">
+          Adapter Architecture
+        </h2>
+        <p className="leading-relaxed text-ap-text-muted">
+          AUTOPILOT communicates through the{" "}
+          <code className="text-xs text-ap-accent">AutomationAdapter</code> interface so
+          additional authorized or self-hosted environments can be integrated without
+          rewriting the UI. The currently shipped environment is Demo Mode. This project
+          does not imply that Tinder, Bumble, Hinge, or any other third-party dating
+          platform is currently supported.
         </p>
       </section>
 

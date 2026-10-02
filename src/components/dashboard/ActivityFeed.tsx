@@ -23,7 +23,7 @@ export function ActivityFeed() {
           <EmptyState
             icon={Activity}
             title="No activity yet"
-            description="Start AUTOPILOT to begin the simulation. Profile loads, likes, and matches will stream here."
+            description="Start AUTOPILOT to begin a session. Profile loads, likes, and matches will stream here."
           />
         ) : (
           activity.map((evt, i) => (

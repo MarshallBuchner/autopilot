@@ -35,7 +35,7 @@ export default function MatchesPage() {
           Matches
         </h1>
         <p className="mt-1 text-sm text-ap-text-muted">
-          Simulated matches from demo sessions. No messaging in V0.2.
+          Matches from your AUTOPILOT sessions. Messaging is not included.
         </p>
       </header>
 

@@ -468,7 +468,7 @@ export function AutopilotProvider({ children }: { children: ReactNode }) {
         id: makeId("evt"),
         timestamp: started,
         type: "session_start",
-        message: "AUTOPILOT started — Demo Mode",
+        message: "AUTOPILOT started",
       },
     ]);
 

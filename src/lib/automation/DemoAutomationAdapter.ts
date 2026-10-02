@@ -44,7 +44,7 @@ export class DemoAutomationAdapter implements AutomationAdapter {
     }
     if (config.mode !== "like_everyone") {
       this.emit("error", {
-        message: "AI Selective mode is coming later. Use Like Everyone for V0.2.",
+        message: "AI Selective mode is coming later. Use Like Everyone for now.",
       });
       return;
     }

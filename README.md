@@ -2,11 +2,11 @@
 
 **I got tired of swiping, so I built AUTOPILOT.**
 
-An experimental local-first automation dashboard — a weekend project exploring what dating autopilot could look like as a polished product UI.
+An experimental open-source dating automation dashboard built around a pluggable adapter architecture.
 
 > “Let it swipe. You do you.”
 
-**V0.2 is a simulation / demo.** It does not connect to Tinder, Bumble, Hinge, or any dating platform. No credentials, no scraping, no private APIs.
+The currently shipped environment is **Demo Mode** via `DemoAutomationAdapter`. It does not connect to Tinder, Bumble, Hinge, or any dating platform. No credentials, no scraping, no private APIs.
 
 ---
 
@@ -17,28 +17,26 @@ npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000), click **Launch demo**, then **START AUTOPILOT**.
+Open [http://localhost:3000](http://localhost:3000), click **Launch AUTOPILOT**, then **START AUTOPILOT**.
 
 | | |
 |---|---|
 | Live app | _Add your deployment URL via `NEXT_PUBLIC_DEPLOY_URL`_ |
 | Source | [github.com/MarshallBuchner/autopilot](https://github.com/MarshallBuchner/autopilot) |
 
-_Screenshot tip: run a short session at ~1440×900 with delay ≈ 1–2s for a clean capture of LIKE / MATCH._
-
 ---
 
 ## What it does
 
-AUTOPILOT is a dark premium desktop dashboard that runs a local demo engine:
+AUTOPILOT is a dark premium desktop dashboard for running automation sessions:
 
-1. Load fictional profiles
+1. Load profiles through the active adapter
 2. Wait a configured delay (optionally randomized)
 3. Animate a **LIKE**
-4. Occasionally celebrate a simulated **MATCH**
+4. Occasionally celebrate a **MATCH**
 5. Track KPIs, activity, analytics, and session history in `localStorage`
 
-Everything stays in your browser.
+In Demo Mode, those profiles are fictional and everything stays in your browser.
 
 ---
 
@@ -46,7 +44,7 @@ Everything stays in your browser.
 
 - Live AUTOPILOT session with illustrated demo profiles
 - START / STOP controls and green **AUTOPILOT RUNNING** status
-- Like Everyone simulation (AI Selective marked coming later)
+- Like Everyone mode (AI Selective marked coming later)
 - Configurable max profiles, action delay, randomized timing
 - LIKE overlay + card exit motion
 - MATCH celebration overlay with short auto-continue
@@ -70,10 +68,12 @@ UI (Dashboard / pages)
         ▼
  AutomationAdapter  (interface)
         │
-        └── DemoAutomationAdapter   ← V0.2 (ships)
+        └── DemoAutomationAdapter   ← currently shipped (Demo Mode)
 ```
 
-The adapter abstraction exists so the dashboard never embeds simulator timers directly. A future **user-owned** local helper could implement the same contract without rewriting the UI. That adapter is **not** included — and this repo does not implement real dating-platform automation.
+AUTOPILOT communicates through the `AutomationAdapter` interface so additional authorized or self-hosted environments can be integrated without rewriting the UI. The currently included adapter is `DemoAutomationAdapter`.
+
+This repo does **not** implement real dating-platform automation and does not imply that Tinder, Bumble, Hinge, or any other third-party platform is currently supported.
 
 | Method | Role |
 |---|---|
@@ -83,9 +83,9 @@ The adapter abstraction exists so the dashboard never embeds simulator timers di
 
 | Event | Meaning |
 |---|---|
-| `profileLoaded` | New demo profile |
-| `actionPerformed` | Simulated like |
-| `matchDetected` | Simulated match |
+| `profileLoaded` | New profile |
+| `actionPerformed` | Like action |
+| `matchDetected` | Match event |
 | `sessionComplete` | Stopped or max reached |
 
 ---
@@ -139,7 +139,7 @@ NEXT_PUBLIC_DEPLOY_URL=https://your-deployment.example
 
 ## Privacy
 
-V0.2 is local / browser-based. Demo session data lives in `localStorage`. No account credentials are collected. Clear everything from **Settings → Clear local data**.
+Demo Mode is local / browser-based. Session data lives in `localStorage`. No account credentials are collected. Clear everything from **Settings → Clear local data**.
 
 ---
 
@@ -157,12 +157,12 @@ Do not use third-party trademarks or copyrighted dating-app assets with this pro
 
 Modest next steps:
 
-- Richer simulation detail
-- AI Selective **demo** mode
+- Richer Demo Mode detail
+- AI Selective mode
 - Session comparisons / trends
-- Additional local experimentation around the adapter surface
+- Additional authorized or self-hosted adapter environments
 
-This roadmap does **not** promise real dating-platform automation.
+This roadmap does **not** promise unofficial third-party dating-platform automation.
 
 ---
 
