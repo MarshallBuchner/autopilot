@@ -13,7 +13,6 @@ export function DashboardView() {
   const {
     isRunning,
     status,
-    hydrated,
     start,
     stop,
     stats,
@@ -65,9 +64,8 @@ export function DashboardView() {
           ) : (
             <button
               type="button"
-              disabled={!hydrated}
               onClick={() => void start()}
-              className="inline-flex items-center gap-2 rounded-xl bg-ap-accent px-4 py-2.5 text-sm font-semibold text-white hover:brightness-110 transition-all disabled:opacity-40 shadow-[0_0_24px_var(--ap-accent-glow)]"
+              className="inline-flex items-center gap-2 rounded-xl bg-ap-accent px-4 py-2.5 text-sm font-semibold text-white hover:brightness-110 transition-all shadow-[0_0_24px_var(--ap-accent-glow)]"
             >
               <Play className="h-3.5 w-3.5 fill-white" />
               START AUTOPILOT

@@ -218,12 +218,19 @@ export function AutopilotProvider({ children }: { children: ReactNode }) {
     [persist]
   );
 
-  // Hydrate from localStorage + wire adapter (client-only)
+  const finalizeSessionRef = useRef(finalizeSession);
   useEffect(() => {
+    finalizeSessionRef.current = finalizeSession;
+  }, [finalizeSession]);
+
+  // Hydrate from localStorage + wire adapter (client-only, once)
+  useEffect(() => {
+    let cancelled = false;
     const state = loadPersistedState();
     // Defer hydration updates to avoid synchronous setState-in-effect lint
     // and keep SSR/client first paint aligned on defaults.
     startTransition(() => {
+      if (cancelled) return;
       setSettings(state.settings);
       setSessions(state.sessions);
       setMatches(state.matches);
@@ -248,8 +255,11 @@ export function AutopilotProvider({ children }: { children: ReactNode }) {
     adapterRef.current = adapter;
 
     const unsubs = [
-      adapter.on("statusChanged", (s) => setStatus(s)),
+      adapter.on("statusChanged", (s) => {
+        if (!cancelled) setStatus(s);
+      }),
       adapter.on("profileLoaded", (profile) => {
+        if (cancelled) return;
         setShowLikeOverlay(false);
         setCurrentProfile(profile);
         setStats((prev) => ({
@@ -265,6 +275,7 @@ export function AutopilotProvider({ children }: { children: ReactNode }) {
         );
       }),
       adapter.on("actionPerformed", ({ profile }) => {
+        if (cancelled) return;
         setShowLikeOverlay(true);
         if (likeTimerRef.current) clearTimeout(likeTimerRef.current);
         likeTimerRef.current = setTimeout(() => setShowLikeOverlay(false), 700);
@@ -293,6 +304,7 @@ export function AutopilotProvider({ children }: { children: ReactNode }) {
         );
       }),
       adapter.on("matchDetected", (profile) => {
+        if (cancelled) return;
         setShowMatchCelebration(true);
         if (matchTimerRef.current) clearTimeout(matchTimerRef.current);
         matchTimerRef.current = setTimeout(() => setShowMatchCelebration(false), 1600);
@@ -332,9 +344,10 @@ export function AutopilotProvider({ children }: { children: ReactNode }) {
         );
       }),
       adapter.on("sessionComplete", ({ reason }) => {
-        finalizeSession(reason);
+        if (!cancelled) finalizeSessionRef.current(reason);
       }),
       adapter.on("error", ({ message }) => {
+        if (cancelled) return;
         setActivity((prev) =>
           pushActivity(prev, { type: "error", message })
         );
@@ -342,18 +355,30 @@ export function AutopilotProvider({ children }: { children: ReactNode }) {
     ];
 
     void adapter.connect().then(() => {
+      if (cancelled) return;
       setStatus(adapter.getStatus());
       setHydrated(true);
     });
 
+    // Fallback unlock if connect promise is delayed (Strict Mode remount races)
+    const unlock = window.setTimeout(() => {
+      if (cancelled) return;
+      setHydrated(true);
+      if (adapterRef.current) {
+        setStatus(adapterRef.current.getStatus());
+      }
+    }, 50);
+
     return () => {
+      cancelled = true;
+      window.clearTimeout(unlock);
       unsubs.forEach((u) => u());
       void adapter.disconnect();
       if (likeTimerRef.current) clearTimeout(likeTimerRef.current);
       if (matchTimerRef.current) clearTimeout(matchTimerRef.current);
       if (durationTimerRef.current) clearInterval(durationTimerRef.current);
     };
-  }, [finalizeSession]);
+  }, []);
 
   // Persist settings / sessions / matches when they change (after hydrate)
   useEffect(() => {
@@ -392,8 +417,14 @@ export function AutopilotProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const start = useCallback(async () => {
-    const adapter = adapterRef.current;
-    if (!adapter) return;
+    let adapter = adapterRef.current;
+    if (!adapter) {
+      adapter = new DemoAutomationAdapter();
+      adapterRef.current = adapter;
+      await adapter.connect();
+      setStatus(adapter.getStatus());
+      setHydrated(true);
+    }
 
     const id = makeId("session");
     const started = Date.now();
