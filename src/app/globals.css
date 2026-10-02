@@ -1,0 +1,234 @@
+@import "tailwindcss";
+
+:root {
+  --ap-bg: #070708;
+  --ap-bg-elevated: #0e0e10;
+  --ap-card: #141417;
+  --ap-card-hover: #1a1a1e;
+  --ap-border: #2a2a30;
+  --ap-border-subtle: #1f1f24;
+  --ap-text: #f5f5f7;
+  --ap-text-muted: #8b8b96;
+  --ap-text-dim: #5c5c68;
+  --ap-accent: #ff4d6d;
+  --ap-accent-soft: rgba(255, 77, 109, 0.14);
+  --ap-accent-glow: rgba(255, 77, 109, 0.35);
+  --ap-success: #3dd68c;
+  --ap-success-soft: rgba(61, 214, 140, 0.15);
+  --ap-warning: #f5a524;
+  --ap-radius: 14px;
+  --ap-sidebar: 240px;
+}
+
+@theme inline {
+  --color-background: var(--ap-bg);
+  --color-foreground: var(--ap-text);
+  --color-ap-bg: var(--ap-bg);
+  --color-ap-bg-elevated: var(--ap-bg-elevated);
+  --color-ap-card: var(--ap-card);
+  --color-ap-card-hover: var(--ap-card-hover);
+  --color-ap-border: var(--ap-border);
+  --color-ap-border-subtle: var(--ap-border-subtle);
+  --color-ap-text: var(--ap-text);
+  --color-ap-text-muted: var(--ap-text-muted);
+  --color-ap-text-dim: var(--ap-text-dim);
+  --color-ap-accent: var(--ap-accent);
+  --color-ap-accent-soft: var(--ap-accent-soft);
+  --color-ap-accent-glow: var(--ap-accent-glow);
+  --color-ap-success: var(--ap-success);
+  --color-ap-success-soft: var(--ap-success-soft);
+  --color-ap-warning: var(--ap-warning);
+  --font-sans: var(--font-outfit);
+  --font-display: var(--font-syne);
+  --font-mono: var(--font-jetbrains);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--ap-bg);
+  color: var(--ap-text);
+  font-family: var(--font-outfit), system-ui, sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Atmospheric background */
+.ap-app-bg {
+  background:
+    radial-gradient(ellipse 80% 50% at 10% -10%, rgba(255, 77, 109, 0.08), transparent 55%),
+    radial-gradient(ellipse 60% 40% at 90% 0%, rgba(120, 80, 200, 0.05), transparent 50%),
+    radial-gradient(ellipse 50% 30% at 50% 100%, rgba(255, 77, 109, 0.04), transparent 55%),
+    var(--ap-bg);
+}
+
+.ap-card {
+  background: var(--ap-card);
+  border: 1px solid var(--ap-border-subtle);
+  border-radius: var(--ap-radius);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.ap-card-flat {
+  background: var(--ap-card);
+  border: 1px solid var(--ap-border-subtle);
+  border-radius: var(--ap-radius);
+}
+
+@keyframes ap-pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(0.85);
+  }
+}
+
+@keyframes ap-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes ap-like-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.6) rotate(-8deg);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1.08) rotate(0deg);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.15) rotate(4deg);
+  }
+}
+
+@keyframes ap-match-burst {
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  30% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+  70% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.05);
+  }
+}
+
+@keyframes ap-profile-in {
+  from {
+    opacity: 0;
+    transform: translateX(16px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes ap-activity-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.ap-animate-fade-up {
+  animation: ap-fade-up 0.35s ease-out both;
+}
+
+.ap-animate-profile {
+  animation: ap-profile-in 0.4s ease-out both;
+}
+
+.ap-animate-like {
+  animation: ap-like-pop 0.7s ease-out both;
+}
+
+.ap-animate-match {
+  animation: ap-match-burst 1.5s ease-out both;
+}
+
+.ap-animate-activity {
+  animation: ap-activity-in 0.28s ease-out both;
+}
+
+.ap-pulse-dot {
+  animation: ap-pulse-dot 1.6s ease-in-out infinite;
+}
+
+/* Range slider */
+input[type="range"].ap-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--ap-border);
+  outline: none;
+}
+
+input[type="range"].ap-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--ap-accent);
+  box-shadow: 0 0 0 4px var(--ap-accent-soft), 0 0 12px var(--ap-accent-glow);
+  cursor: pointer;
+}
+
+input[type="range"].ap-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border: none;
+  border-radius: 50%;
+  background: var(--ap-accent);
+  box-shadow: 0 0 0 4px var(--ap-accent-soft), 0 0 12px var(--ap-accent-glow);
+  cursor: pointer;
+}
+
+/* Scrollbar */
+.ap-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.ap-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.ap-scroll::-webkit-scrollbar-thumb {
+  background: var(--ap-border);
+  border-radius: 999px;
+}
+
+::selection {
+  background: var(--ap-accent-soft);
+  color: var(--ap-text);
+}
