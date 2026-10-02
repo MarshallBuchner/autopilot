@@ -1,6 +1,7 @@
 "use client";
 
 import { MapPin, Briefcase } from "lucide-react";
+import { useAutopilot } from "@/context/AutopilotProvider";
 import type { DemoProfile } from "@/lib/types";
 import { ProfilePortrait } from "@/components/profile/ProfilePortrait";
 import { cn } from "@/lib/cn";
@@ -16,6 +17,8 @@ export function ProfileCard({
   exiting?: boolean;
   isRunning?: boolean;
 }) {
+  const { environment } = useAutopilot();
+
   if (!profile) {
     return (
       <div className="ap-card relative flex min-h-[360px] flex-col items-center justify-center p-6 text-center sm:min-h-[420px]">
@@ -24,7 +27,9 @@ export function ProfileCard({
         </div>
         <p className="max-w-[240px] text-sm font-medium text-ap-text">Ready when you are.</p>
         <p className="mt-2 max-w-[260px] text-xs text-ap-text-muted">
-          Start AUTOPILOT to begin a Demo Mode session.
+          {environment === "live_sandbox"
+            ? "Start AUTOPILOT to begin a Live Sandbox session."
+            : "Start AUTOPILOT to begin a Demo Mode session."}
         </p>
       </div>
     );

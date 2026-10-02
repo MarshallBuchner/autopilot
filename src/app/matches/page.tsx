@@ -10,12 +10,20 @@ import { cn } from "@/lib/cn";
 import type { MatchRecord } from "@/lib/types";
 
 export default function MatchesPage() {
-  const { matches, hydrated, selectedMatchId, setSelectedMatchId } = useAutopilot();
+  const {
+    matches,
+    hydrated,
+    selectedMatchId,
+    setSelectedMatchId,
+    environment,
+  } = useAutopilot();
 
   const selected = useMemo(
     () => matches.find((m) => m.id === selectedMatchId) ?? null,
     [matches, selectedMatchId]
   );
+
+  const isSandbox = environment === "live_sandbox";
 
   if (!hydrated) {
     return (
@@ -31,11 +39,18 @@ export default function MatchesPage() {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="font-[family-name:var(--font-syne)] text-3xl font-bold tracking-tight">
-          Matches
-        </h1>
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="font-[family-name:var(--font-syne)] text-3xl font-bold tracking-tight">
+            Matches
+          </h1>
+          <span className="rounded-md border border-ap-border bg-ap-card px-2 py-1 text-[10px] uppercase tracking-[0.14em] text-ap-text-muted">
+            {isSandbox ? "Live Sandbox" : "Demo Mode"}
+          </span>
+        </div>
         <p className="mt-1 text-sm text-ap-text-muted">
-          Matches from your AUTOPILOT sessions. Messaging is not included.
+          {isSandbox
+            ? "Persisted matches from the Live Sandbox backend. Messaging is not included."
+            : "Matches from your AUTOPILOT demo sessions. Messaging is not included."}
         </p>
       </header>
 
@@ -44,7 +59,11 @@ export default function MatchesPage() {
           <EmptyState
             icon={Heart}
             title="No matches yet"
-            description="Keep the simulator running — matches appear at roughly 5–12% probability and are saved locally."
+            description={
+              isSandbox
+                ? "Like a profile that already liked Alex — reciprocal likes create a persisted Match."
+                : "Keep the simulator running — matches appear at roughly 5–12% probability and are saved locally."
+            }
           />
         </div>
       ) : (
@@ -70,7 +89,7 @@ export default function MatchesPage() {
                     Matched {formatRelativeMinutes(match.matchedAt)}
                   </div>
                   <div className="text-[11px] text-ap-text-dim mt-1 font-mono truncate">
-                    Session {match.sessionId}
+                    {isSandbox ? "LIVE SANDBOX" : `Session ${match.sessionId}`}
                   </div>
                 </div>
               </button>
@@ -79,7 +98,11 @@ export default function MatchesPage() {
 
           <div className="lg:col-span-2">
             {selected ? (
-              <MatchDetails match={selected} onClose={() => setSelectedMatchId(null)} />
+              <MatchDetails
+                match={selected}
+                sandbox={isSandbox}
+                onClose={() => setSelectedMatchId(null)}
+              />
             ) : (
               <div className="ap-card p-8 text-center text-sm text-ap-text-dim">
                 Select a match to view details.
@@ -102,9 +125,11 @@ function MatchAvatar({ profile }: { profile: MatchRecord["profile"] }) {
 
 function MatchDetails({
   match,
+  sandbox,
   onClose,
 }: {
   match: MatchRecord;
+  sandbox: boolean;
   onClose: () => void;
 }) {
   const { profile } = match;
@@ -136,7 +161,8 @@ function MatchDetails({
         <Row label="Distance" value={`${profile.distanceKm} km away`} />
         <Row label="Occupation" value={profile.occupation} />
         <Row label="Bio" value={`“${profile.bio}”`} />
-        <Row label="Session ID" value={match.sessionId} mono />
+        {!sandbox ? <Row label="Session ID" value={match.sessionId} mono /> : null}
+        {sandbox ? <Row label="Match ID" value={match.id} mono /> : null}
       </div>
 
       <div className="flex flex-wrap gap-2 pt-1">
@@ -151,7 +177,9 @@ function MatchDetails({
       </div>
 
       <p className="text-[11px] text-ap-text-dim border-t border-ap-border-subtle pt-3">
-        Demo match only — no messaging or third-party connection.
+        {sandbox
+          ? "LIVE SANDBOX match — created from reciprocal persisted likes. No production dating service involved."
+          : "Demo match only — no messaging or third-party connection."}
       </p>
     </div>
   );

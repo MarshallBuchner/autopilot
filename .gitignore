@@ -42,3 +42,9 @@ next-env.d.ts
 
 # local smoke artifacts
 /scripts/ui-artifacts/
+
+# Live Sandbox local database (keep directory via .gitkeep)
+/data/*
+!/data/.gitkeep
+*.db
+*.db-*

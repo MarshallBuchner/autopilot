@@ -444,3 +444,10 @@ export function generateDemoProfile(seed: number): DemoProfile {
 export function getCuratedProfileCount(): number {
   return CURATED.length;
 }
+
+/** Stable curated profiles for Demo Mode generation and Live Sandbox seeding. */
+export function listCuratedProfiles(): DemoProfile[] {
+  return CURATED.map((seed, index) =>
+    fromSeed(seed, `curated-${index}-${seed.firstName.toLowerCase()}`)
+  );
+}

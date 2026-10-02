@@ -3,12 +3,28 @@
 import { useState } from "react";
 import { useAutopilot } from "@/context/AutopilotProvider";
 import { cn } from "@/lib/cn";
+import { SANDBOX_CURRENT_USER } from "@/lib/sandbox/seed";
 
 const MAX_PRESETS = [25, 50, 100, 250] as const;
 
 export default function SettingsPage() {
-  const { settings, updateSettings, clearAllData, hydrated, isRunning } = useAutopilot();
+  const {
+    settings,
+    updateSettings,
+    clearAllData,
+    hydrated,
+    isRunning,
+    environment,
+    sandboxStatus,
+    sandboxInspect,
+    sandboxConnection,
+    refreshSandbox,
+    initializeSandbox,
+    resetSandbox,
+  } = useAutopilot();
   const [cleared, setCleared] = useState(false);
+  const [showInspector, setShowInspector] = useState(false);
+  const [busy, setBusy] = useState(false);
   const isCustom = !MAX_PRESETS.includes(
     settings.defaultMaxProfiles as (typeof MAX_PRESETS)[number]
   );
@@ -31,7 +47,7 @@ export default function SettingsPage() {
           Settings
         </h1>
         <p className="text-ap-text-muted text-sm mt-1">
-          Defaults applied when you start a new demo session.
+          Defaults applied when you start a new session.
         </p>
       </header>
 
@@ -132,12 +148,134 @@ export default function SettingsPage() {
       </section>
 
       <section className="ap-card p-5 space-y-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="font-[family-name:var(--font-syne)] text-base font-semibold">
+              Live Sandbox
+            </h2>
+            <p className="text-sm text-ap-text-muted mt-1 leading-relaxed">
+              Controlled local backend for persisted likes and reciprocal matches. Not a
+              production dating service.
+            </p>
+          </div>
+          <span className="rounded-md border border-ap-border px-2 py-1 text-[10px] uppercase tracking-wider text-ap-text-muted shrink-0">
+            {environment === "live_sandbox" ? "Active" : "Idle"}
+          </span>
+        </div>
+
+        <div className="rounded-xl border border-ap-border-subtle bg-ap-bg/50 p-3 space-y-2 text-sm">
+          <Row
+            label="Current user"
+            value={`${SANDBOX_CURRENT_USER.firstName}, ${SANDBOX_CURRENT_USER.age}`}
+          />
+          <Row
+            label="Backend status"
+            value={
+              sandboxStatus
+                ? sandboxStatus.available
+                  ? sandboxStatus.initialized
+                    ? `Connected · ${sandboxStatus.profiles} profiles`
+                    : "Ready · not initialized"
+                  : "LOCAL SETUP REQUIRED"
+                : sandboxConnection === "connecting"
+                  ? "Connecting…"
+                  : "Not checked"
+            }
+          />
+          <Row
+            label="Outgoing likes"
+            value={String(sandboxStatus?.outgoingLikes ?? "—")}
+          />
+          <Row
+            label="Incoming likes"
+            value={String(sandboxStatus?.incomingLikes ?? "—")}
+          />
+          <Row label="Matches" value={String(sandboxStatus?.matches ?? "—")} />
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            disabled={busy || isRunning}
+            onClick={() => {
+              setBusy(true);
+              void initializeSandbox()
+                .catch(() => undefined)
+                .finally(() => setBusy(false));
+            }}
+            className="rounded-xl bg-ap-accent px-3 py-2 text-xs font-semibold text-white disabled:opacity-40"
+          >
+            Initialize sandbox
+          </button>
+          <button
+            type="button"
+            disabled={busy || isRunning}
+            onClick={() => {
+              if (
+                !window.confirm(
+                  "Reset Live Sandbox? This clears all sandbox Likes and Matches and restores the initial test dataset."
+                )
+              ) {
+                return;
+              }
+              setBusy(true);
+              void resetSandbox()
+                .catch(() => undefined)
+                .finally(() => setBusy(false));
+            }}
+            className="rounded-xl border border-ap-border px-3 py-2 text-xs text-ap-text-muted hover:text-ap-text disabled:opacity-40"
+          >
+            Reset sandbox
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => {
+              setBusy(true);
+              void refreshSandbox().finally(() => setBusy(false));
+            }}
+            className="rounded-xl border border-ap-border px-3 py-2 text-xs text-ap-text-muted hover:text-ap-text disabled:opacity-40"
+          >
+            Refresh
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setShowInspector((v) => !v);
+              if (!showInspector) void refreshSandbox();
+            }}
+            className="rounded-xl border border-ap-border px-3 py-2 text-xs text-ap-text-muted hover:text-ap-text"
+          >
+            {showInspector ? "Hide sandbox data" : "VIEW SANDBOX DATA"}
+          </button>
+        </div>
+
+        {showInspector ? (
+          <pre className="max-h-80 overflow-auto rounded-xl border border-ap-border-subtle bg-ap-bg p-3 text-[11px] text-ap-text-muted leading-relaxed">
+            {JSON.stringify(
+              {
+                status: sandboxStatus,
+                connection: sandboxConnection,
+                currentUser: sandboxInspect?.currentUser ?? SANDBOX_CURRENT_USER,
+                outgoingLikes: sandboxInspect?.outgoingLikes ?? [],
+                incomingLikes: sandboxInspect?.incomingLikes ?? [],
+                matches: sandboxInspect?.matches ?? [],
+              },
+              null,
+              2
+            )}
+          </pre>
+        ) : null}
+      </section>
+
+      <section className="ap-card p-5 space-y-4">
         <h2 className="font-[family-name:var(--font-syne)] text-base font-semibold">
           Privacy
         </h2>
         <p className="text-sm text-ap-text-muted leading-relaxed">
-          AUTOPILOT stores demo/session data locally in your browser. No account credentials
-          are collected by this V0.1 build.
+          Demo session data lives in your browser. Live Sandbox likes and matches persist in
+          a local SQLite database under <code className="text-xs text-ap-accent">data/</code>.
+          No third-party dating credentials are collected.
         </p>
         <button
           type="button"
@@ -149,9 +287,18 @@ export default function SettingsPage() {
           }}
           className="rounded-xl px-4 py-2.5 text-sm border border-ap-border text-ap-text-muted hover:text-ap-accent hover:border-ap-accent transition-colors disabled:opacity-40"
         >
-          {cleared ? "Local data cleared" : "Clear local data"}
+          {cleared ? "Local data cleared" : "Clear local browser data"}
         </button>
       </section>
+    </div>
+  );
+}
+
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-baseline justify-between gap-3">
+      <span className="text-xs text-ap-text-dim">{label}</span>
+      <span className="text-sm text-ap-text text-right">{value}</span>
     </div>
   );
 }

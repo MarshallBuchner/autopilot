@@ -31,8 +31,15 @@ export function loadPersistedState(): PersistedState {
     const matches = Array.isArray(parsed.matches)
       ? parsed.matches.map((m) => ({ ...m, profile: normalizeProfile(m.profile) }))
       : [];
+    const settings = { ...DEFAULT_SETTINGS, ...parsed.settings };
+    if (settings.environment !== "demo" && settings.environment !== "live_sandbox") {
+      settings.environment = "demo";
+    }
+    if (typeof settings.sandboxSetupComplete !== "boolean") {
+      settings.sandboxSetupComplete = false;
+    }
     return {
-      settings: { ...DEFAULT_SETTINGS, ...parsed.settings },
+      settings,
       sessions: Array.isArray(parsed.sessions) ? parsed.sessions : [],
       matches,
       lastActiveSession: parsed.lastActiveSession ?? null,

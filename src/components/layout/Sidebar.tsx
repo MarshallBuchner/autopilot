@@ -26,12 +26,33 @@ const NAV = [
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { status, hydrated } = useAutopilot();
+  const { status, hydrated, environment, sandboxConnection, sandboxStatus } =
+    useAutopilot();
   const [open, setOpen] = useState(false);
 
-  const connected =
+  const demoConnected =
     hydrated &&
+    environment === "demo" &&
     (status === "connected" || status === "running" || status === "stopped");
+
+  const sandboxConnected =
+    hydrated &&
+    environment === "live_sandbox" &&
+    sandboxConnection === "connected" &&
+    Boolean(sandboxStatus?.initialized);
+
+  const connected = environment === "demo" ? demoConnected : sandboxConnected;
+
+  const statusText =
+    environment === "live_sandbox"
+      ? connected
+        ? "Live Sandbox connected"
+        : sandboxStatus && !sandboxStatus.available
+          ? "Local setup required"
+          : "Sandbox offline"
+      : connected
+        ? "Demo engine connected"
+        : "Connecting…";
 
   const nav = (
     <>
@@ -41,7 +62,7 @@ export function Sidebar() {
           <div className="font-[family-name:var(--font-syne)] text-lg font-bold tracking-tight text-ap-text leading-none">
             AUTOPILOT
           </div>
-          <div className="mt-1 text-[11px] tracking-wide text-ap-text-dim">v0.2</div>
+          <div className="mt-1 text-[11px] tracking-wide text-ap-text-dim">v0.3</div>
         </div>
       </div>
 
@@ -78,9 +99,11 @@ export function Sidebar() {
               connected ? "bg-ap-success ap-pulse-dot" : "bg-ap-text-dim"
             )}
           />
-          <span>{connected ? "Demo engine connected" : "Connecting…"}</span>
+          <span>{statusText}</span>
         </div>
-        <div className="mt-1.5 text-[11px] text-ap-text-dim pl-4">Local only</div>
+        <div className="mt-1.5 text-[11px] text-ap-text-dim pl-4">
+          {environment === "live_sandbox" ? "LIVE SANDBOX" : "Demo · Local only"}
+        </div>
       </div>
     </>
   );

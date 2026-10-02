@@ -1,6 +1,16 @@
 export type AutomationMode = "like_everyone" | "ai_selective";
 
+/** Which automation environment drives the dashboard. */
+export type EnvironmentMode = "demo" | "live_sandbox";
+
 export type AdapterStatus = "disconnected" | "connected" | "running" | "stopped" | "error";
+
+/** Connection health for Live Sandbox backend (separate from adapter run status). */
+export type SandboxConnectionState =
+  | "disconnected"
+  | "connecting"
+  | "connected"
+  | "error";
 
 export type AvatarStyle = "soft" | "studio" | "warm" | "cool" | "dusk" | "mint";
 
@@ -76,6 +86,10 @@ export interface AppSettings {
   defaultDelaySeconds: number;
   randomizeTiming: boolean;
   stopAfterMax: boolean;
+  /** Preferred automation environment (Demo vs Live Sandbox). */
+  environment: EnvironmentMode;
+  /** True once the user has completed first-time Live Sandbox setup. */
+  sandboxSetupComplete: boolean;
 }
 
 export interface PersistedState {
@@ -106,6 +120,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   defaultDelaySeconds: 3,
   randomizeTiming: true,
   stopAfterMax: true,
+  environment: "demo",
+  sandboxSetupComplete: false,
 };
 
 export const DEFAULT_CONFIG: SessionConfig = {

@@ -12,7 +12,16 @@ import {
   type ReactNode,
 } from "react";
 import { DemoAutomationAdapter } from "@/lib/automation/DemoAutomationAdapter";
+import { SandboxAutomationAdapter } from "@/lib/automation/SandboxAutomationAdapter";
 import type { AutomationAdapter } from "@/lib/automation/AutomationAdapter";
+import {
+  fetchSandboxInspect,
+  fetchSandboxMatches,
+  fetchSandboxStatus,
+  initializeSandboxRemote,
+  resetSandboxRemote,
+} from "@/lib/sandbox/client";
+import type { SandboxInspectData, SandboxStatus } from "@/lib/sandbox/types";
 import {
   clearPersistedState,
   downloadText,
@@ -28,7 +37,9 @@ import type {
   AppSettings,
   CompletedSession,
   DemoProfile,
+  EnvironmentMode,
   MatchRecord,
+  SandboxConnectionState,
   SessionCompleteSummary,
   SessionConfig,
   SessionStats,
@@ -66,10 +77,24 @@ function pushActivity(
   return [event, ...prev].slice(0, MAX_ACTIVITY);
 }
 
+function createAdapter(environment: EnvironmentMode): AutomationAdapter {
+  return environment === "live_sandbox"
+    ? new SandboxAutomationAdapter()
+    : new DemoAutomationAdapter();
+}
+
 interface AutopilotContextValue {
   hydrated: boolean;
   status: AdapterStatus;
   isRunning: boolean;
+  environment: EnvironmentMode;
+  setEnvironment: (env: EnvironmentMode) => Promise<void>;
+  sandboxStatus: SandboxStatus | null;
+  sandboxConnection: SandboxConnectionState;
+  sandboxInspect: SandboxInspectData | null;
+  refreshSandbox: () => Promise<void>;
+  initializeSandbox: () => Promise<void>;
+  resetSandbox: () => Promise<void>;
   config: SessionConfig;
   setConfig: (patch: Partial<SessionConfig>) => void;
   settings: AppSettings;
@@ -86,6 +111,8 @@ interface AutopilotContextValue {
   matches: MatchRecord[];
   sessionId: string | null;
   sessionStartedAt: number | null;
+  canStart: boolean;
+  startBlockedReason: string | null;
   start: () => Promise<void>;
   stop: () => Promise<void>;
   resetDemo: () => void;
@@ -101,8 +128,17 @@ const AutopilotContext = createContext<AutopilotContextValue | null>(null);
 
 export function AutopilotProvider({ children }: { children: ReactNode }) {
   const adapterRef = useRef<AutomationAdapter | null>(null);
+  const environmentRef = useRef<EnvironmentMode>("demo");
+  const [bootstrapped, setBootstrapped] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const [status, setStatus] = useState<AdapterStatus>("disconnected");
+  const [environment, setEnvironmentState] = useState<EnvironmentMode>("demo");
+  const [sandboxStatus, setSandboxStatus] = useState<SandboxStatus | null>(null);
+  const [sandboxConnection, setSandboxConnection] =
+    useState<SandboxConnectionState>("disconnected");
+  const [sandboxInspect, setSandboxInspect] = useState<SandboxInspectData | null>(
+    null
+  );
   const [config, setConfigState] = useState<SessionConfig>({ ...DEFAULT_CONFIG });
   const [settings, setSettings] = useState<AppSettings>({ ...DEFAULT_SETTINGS });
   const [currentProfile, setCurrentProfile] = useState<DemoProfile | null>(null);
@@ -115,7 +151,8 @@ export function AutopilotProvider({ children }: { children: ReactNode }) {
   const [stats, setStats] = useState<SessionStats>(emptyStats());
   const [activity, setActivity] = useState<ActivityEvent[]>([]);
   const [sessions, setSessions] = useState<CompletedSession[]>([]);
-  const [matches, setMatches] = useState<MatchRecord[]>([]);
+  const [demoMatches, setDemoMatches] = useState<MatchRecord[]>([]);
+  const [sandboxMatches, setSandboxMatches] = useState<MatchRecord[]>([]);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [sessionStartedAt, setSessionStartedAt] = useState<number | null>(null);
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
@@ -125,7 +162,7 @@ export function AutopilotProvider({ children }: { children: ReactNode }) {
   const sessionIdRef = useRef(sessionId);
   const sessionStartedAtRef = useRef(sessionStartedAt);
   const configRef = useRef(config);
-  const matchesRef = useRef(matches);
+  const demoMatchesRef = useRef(demoMatches);
   const sessionsRef = useRef(sessions);
   const activityRef = useRef(activity);
   const settingsRef = useRef(settings);
@@ -146,8 +183,8 @@ export function AutopilotProvider({ children }: { children: ReactNode }) {
     configRef.current = config;
   }, [config]);
   useEffect(() => {
-    matchesRef.current = matches;
-  }, [matches]);
+    demoMatchesRef.current = demoMatches;
+  }, [demoMatches]);
   useEffect(() => {
     sessionsRef.current = sessions;
   }, [sessions]);
@@ -157,12 +194,17 @@ export function AutopilotProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     settingsRef.current = settings;
   }, [settings]);
+  useEffect(() => {
+    environmentRef.current = environment;
+  }, [environment]);
+
+  const matches = environment === "demo" ? demoMatches : sandboxMatches;
 
   const persist = useCallback(() => {
     savePersistedState({
       settings: settingsRef.current,
       sessions: sessionsRef.current,
-      matches: matchesRef.current,
+      matches: demoMatchesRef.current,
       lastActiveSession:
         sessionIdRef.current && sessionStartedAtRef.current
           ? {
@@ -175,6 +217,40 @@ export function AutopilotProvider({ children }: { children: ReactNode }) {
             }
           : null,
     });
+  }, []);
+
+  const refreshSandbox = useCallback(async () => {
+    setSandboxConnection("connecting");
+    try {
+      const statusPayload = await fetchSandboxStatus();
+      setSandboxStatus(statusPayload);
+      if (!statusPayload.available) {
+        setSandboxConnection("error");
+        setSandboxMatches([]);
+        setSandboxInspect(null);
+        return;
+      }
+      if (!statusPayload.initialized) {
+        setSandboxConnection("disconnected");
+        setSandboxMatches([]);
+        setSandboxInspect(null);
+        return;
+      }
+      const [matchList, inspect] = await Promise.all([
+        fetchSandboxMatches(),
+        fetchSandboxInspect(),
+      ]);
+      setSandboxMatches(matchList);
+      setSandboxInspect(inspect);
+      setSandboxConnection("connected");
+    } catch {
+      setSandboxConnection("error");
+      setSandboxStatus((prev) =>
+        prev
+          ? { ...prev, connected: false, available: false, database: "unavailable" }
+          : null
+      );
+    }
   }, []);
 
   const finalizeSession = useCallback(
@@ -227,10 +303,12 @@ export function AutopilotProvider({ children }: { children: ReactNode }) {
         setSessionComplete({ reason, session: { ...completed, durationMs } });
       }
 
-      // Defer persist to next tick so refs settle
       setTimeout(() => persist(), 0);
+      if (environmentRef.current === "live_sandbox") {
+        void refreshSandbox();
+      }
     },
-    [persist]
+    [persist, refreshSandbox]
   );
 
   const finalizeSessionRef = useRef(finalizeSession);
@@ -238,17 +316,159 @@ export function AutopilotProvider({ children }: { children: ReactNode }) {
     finalizeSessionRef.current = finalizeSession;
   }, [finalizeSession]);
 
-  // Hydrate from localStorage + wire adapter (client-only, once)
+  const bindAdapter = useCallback(
+    (adapter: AutomationAdapter, cancelled: () => boolean) => {
+      const unsubs = [
+        adapter.on("statusChanged", (s) => {
+          if (!cancelled()) setStatus(s);
+        }),
+        adapter.on("profileLoaded", (profile) => {
+          if (cancelled()) return;
+          setShowLikeOverlay(false);
+          setShowCardExit(false);
+          if (exitTimerRef.current) clearTimeout(exitTimerRef.current);
+          setCurrentProfile(profile);
+          setStats((prev) => ({
+            ...prev,
+            profilesViewed: prev.profilesViewed + 1,
+          }));
+          setActivity((prev) =>
+            pushActivity(prev, {
+              type: "profile_loaded",
+              message: `Profile loaded — ${profile.firstName}, ${profile.age}`,
+              profileId: profile.id,
+            })
+          );
+        }),
+        adapter.on("actionPerformed", ({ profile }) => {
+          if (cancelled()) return;
+          setShowLikeOverlay(true);
+          setShowCardExit(false);
+          if (likeTimerRef.current) clearTimeout(likeTimerRef.current);
+          if (exitTimerRef.current) clearTimeout(exitTimerRef.current);
+          likeTimerRef.current = setTimeout(() => {
+            setShowLikeOverlay(false);
+            setShowCardExit(true);
+          }, 480);
+
+          setStats((prev) => {
+            const likesSent = prev.likesSent + 1;
+            const matchRate = likesSent > 0 ? prev.matches / likesSent : 0;
+            const point: AnalyticsPoint = {
+              actionIndex: likesSent,
+              likes: likesSent,
+              matches: prev.matches,
+            };
+            return {
+              ...prev,
+              likesSent,
+              matchRate,
+              analytics: [...prev.analytics, point],
+            };
+          });
+          setActivity((prev) =>
+            pushActivity(prev, {
+              type: "liked",
+              message: `Liked ${profile.firstName}, ${profile.age}`,
+              profileId: profile.id,
+            })
+          );
+        }),
+        adapter.on("matchDetected", (profile) => {
+          if (cancelled()) return;
+          setMatchProfile(profile);
+          setShowMatchCelebration(true);
+          if (matchTimerRef.current) clearTimeout(matchTimerRef.current);
+          matchTimerRef.current = setTimeout(() => {
+            setShowMatchCelebration(false);
+            setMatchProfile(null);
+          }, 2200);
+
+          const sid = sessionIdRef.current ?? "unknown";
+          const isSandbox = environmentRef.current === "live_sandbox";
+
+          if (isSandbox) {
+            void fetchSandboxMatches()
+              .then((list) => setSandboxMatches(list))
+              .catch(() => {
+                // Keep celebration even if refresh fails; append optimistic record
+                setSandboxMatches((prev) => {
+                  if (prev.some((m) => m.profile.id === profile.id)) return prev;
+                  return [
+                    {
+                      id: makeId("match"),
+                      profile,
+                      matchedAt: Date.now(),
+                      sessionId: sid,
+                    },
+                    ...prev,
+                  ];
+                });
+              });
+          } else {
+            const record: MatchRecord = {
+              id: makeId("match"),
+              profile,
+              matchedAt: Date.now(),
+              sessionId: sid,
+            };
+            setDemoMatches((prev) => {
+              const next = [record, ...prev];
+              demoMatchesRef.current = next;
+              return next;
+            });
+          }
+
+          setStats((prev) => {
+            const matchesCount = prev.matches + 1;
+            const matchRate = prev.likesSent > 0 ? matchesCount / prev.likesSent : 0;
+            const analytics = [...prev.analytics];
+            if (analytics.length > 0) {
+              analytics[analytics.length - 1] = {
+                ...analytics[analytics.length - 1]!,
+                matches: matchesCount,
+              };
+            }
+            return { ...prev, matches: matchesCount, matchRate, analytics };
+          });
+
+          setActivity((prev) =>
+            pushActivity(prev, {
+              type: "match",
+              message: isSandbox
+                ? `Match confirmed — ${profile.firstName}, ${profile.age}`
+                : `Match! ${profile.firstName}, ${profile.age} 🎉`,
+              profileId: profile.id,
+            })
+          );
+        }),
+        adapter.on("sessionComplete", ({ reason }) => {
+          if (!cancelled()) finalizeSessionRef.current(reason);
+        }),
+        adapter.on("error", ({ message }) => {
+          if (cancelled()) return;
+          setActivity((prev) => pushActivity(prev, { type: "error", message }));
+        }),
+      ];
+      return () => unsubs.forEach((u) => u());
+    },
+    []
+  );
+
+  // Hydrate from localStorage (once), then unlock adapter wiring
   useEffect(() => {
     let cancelled = false;
     const state = loadPersistedState();
-    // Defer hydration updates to avoid synchronous setState-in-effect lint
-    // and keep SSR/client first paint aligned on defaults.
     startTransition(() => {
       if (cancelled) return;
       setSettings(state.settings);
       setSessions(state.sessions);
-      setMatches(state.matches);
+      setDemoMatches(state.matches);
+      demoMatchesRef.current = state.matches;
+      settingsRef.current = state.settings;
+      const env = state.settings.environment ?? "demo";
+      setEnvironmentState(env);
+      environmentRef.current = env;
       setConfigState({
         mode: "like_everyone",
         maxProfiles: state.settings.defaultMaxProfiles,
@@ -264,130 +484,37 @@ export function AutopilotProvider({ children }: { children: ReactNode }) {
         setActivity(state.lastActiveSession.activity);
         setConfigState(state.lastActiveSession.config);
       }
+      setBootstrapped(true);
     });
 
-    const adapter = new DemoAutomationAdapter();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Wire adapter whenever environment changes (after bootstrap)
+  useEffect(() => {
+    if (!bootstrapped) return;
+
+    let cancelled = false;
+    const env = environment;
+    const adapter = createAdapter(env);
     adapterRef.current = adapter;
+    const unbind = bindAdapter(adapter, () => cancelled);
 
-    const unsubs = [
-      adapter.on("statusChanged", (s) => {
-        if (!cancelled) setStatus(s);
-      }),
-      adapter.on("profileLoaded", (profile) => {
-        if (cancelled) return;
-        setShowLikeOverlay(false);
-        setShowCardExit(false);
-        if (exitTimerRef.current) clearTimeout(exitTimerRef.current);
-        setCurrentProfile(profile);
-        setStats((prev) => ({
-          ...prev,
-          profilesViewed: prev.profilesViewed + 1,
-        }));
-        setActivity((prev) =>
-          pushActivity(prev, {
-            type: "profile_loaded",
-            message: `Profile loaded — ${profile.firstName}, ${profile.age}`,
-            profileId: profile.id,
-          })
-        );
-      }),
-      adapter.on("actionPerformed", ({ profile }) => {
-        if (cancelled) return;
-        setShowLikeOverlay(true);
-        setShowCardExit(false);
-        if (likeTimerRef.current) clearTimeout(likeTimerRef.current);
-        if (exitTimerRef.current) clearTimeout(exitTimerRef.current);
-        // LIKE stamp, then exit toward the right before next profile
-        likeTimerRef.current = setTimeout(() => {
-          setShowLikeOverlay(false);
-          setShowCardExit(true);
-        }, 480);
-
-        setStats((prev) => {
-          const likesSent = prev.likesSent + 1;
-          const matchRate = likesSent > 0 ? prev.matches / likesSent : 0;
-          const point: AnalyticsPoint = {
-            actionIndex: likesSent,
-            likes: likesSent,
-            matches: prev.matches,
-          };
-          return {
-            ...prev,
-            likesSent,
-            matchRate,
-            analytics: [...prev.analytics, point],
-          };
-        });
-        setActivity((prev) =>
-          pushActivity(prev, {
-            type: "liked",
-            message: `Liked ${profile.firstName}, ${profile.age}`,
-            profileId: profile.id,
-          })
-        );
-      }),
-      adapter.on("matchDetected", (profile) => {
-        if (cancelled) return;
-        setMatchProfile(profile);
-        setShowMatchCelebration(true);
-        if (matchTimerRef.current) clearTimeout(matchTimerRef.current);
-        matchTimerRef.current = setTimeout(() => {
-          setShowMatchCelebration(false);
-          setMatchProfile(null);
-        }, 2200);
-
-        const sid = sessionIdRef.current ?? "unknown";
-        const record: MatchRecord = {
-          id: makeId("match"),
-          profile,
-          matchedAt: Date.now(),
-          sessionId: sid,
-        };
-        setMatches((prev) => {
-          const next = [record, ...prev];
-          matchesRef.current = next;
-          return next;
-        });
-
-        setStats((prev) => {
-          const matchesCount = prev.matches + 1;
-          const matchRate = prev.likesSent > 0 ? matchesCount / prev.likesSent : 0;
-          const analytics = [...prev.analytics];
-          if (analytics.length > 0) {
-            analytics[analytics.length - 1] = {
-              ...analytics[analytics.length - 1]!,
-              matches: matchesCount,
-            };
-          }
-          return { ...prev, matches: matchesCount, matchRate, analytics };
-        });
-
-        setActivity((prev) =>
-          pushActivity(prev, {
-            type: "match",
-            message: `Match! ${profile.firstName}, ${profile.age} 🎉`,
-            profileId: profile.id,
-          })
-        );
-      }),
-      adapter.on("sessionComplete", ({ reason }) => {
-        if (!cancelled) finalizeSessionRef.current(reason);
-      }),
-      adapter.on("error", ({ message }) => {
-        if (cancelled) return;
-        setActivity((prev) =>
-          pushActivity(prev, { type: "error", message })
-        );
-      }),
-    ];
-
-    void adapter.connect().then(() => {
+    void (async () => {
+      if (env === "live_sandbox") {
+        setSandboxConnection("connecting");
+        await refreshSandbox();
+      } else {
+        setSandboxConnection("disconnected");
+      }
+      await adapter.connect();
       if (cancelled) return;
       setStatus(adapter.getStatus());
       setHydrated(true);
-    });
+    })();
 
-    // Fallback unlock if connect promise is delayed (Strict Mode remount races)
     const unlock = window.setTimeout(() => {
       if (cancelled) return;
       setHydrated(true);
@@ -399,16 +526,19 @@ export function AutopilotProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
       window.clearTimeout(unlock);
-      unsubs.forEach((u) => u());
+      unbind();
       void adapter.disconnect();
+      if (adapterRef.current === adapter) {
+        adapterRef.current = null;
+      }
     };
-  }, []);
+  }, [bootstrapped, environment, bindAdapter, refreshSandbox]);
 
-  // Persist settings / sessions / matches when they change (after hydrate)
+  // Persist settings / sessions / demo matches when they change (after hydrate)
   useEffect(() => {
     if (!hydrated) return;
     persist();
-  }, [hydrated, settings, sessions, matches, persist]);
+  }, [hydrated, settings, sessions, demoMatches, persist]);
 
   const setConfig = useCallback((patch: Partial<SessionConfig>) => {
     setConfigState((prev) => ({ ...prev, ...patch }));
@@ -420,7 +550,6 @@ export function AutopilotProvider({ children }: { children: ReactNode }) {
       settingsRef.current = next;
       return next;
     });
-    // Keep live session config aligned with defaults when idle
     setConfigState((prev) => {
       if (adapterRef.current?.getStatus() === "running") return prev;
       const next: SessionConfig = { ...prev };
@@ -440,14 +569,143 @@ export function AutopilotProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const setEnvironment = useCallback(
+    async (env: EnvironmentMode) => {
+      if (env === environmentRef.current) return;
+      if (adapterRef.current?.getStatus() === "running") {
+        await adapterRef.current.stop();
+      }
+      setCurrentProfile(null);
+      setShowLikeOverlay(false);
+      setShowCardExit(false);
+      setShowMatchCelebration(false);
+      setMatchProfile(null);
+      setSessionComplete(null);
+      setSelectedMatchId(null);
+      setActivity((prev) =>
+        pushActivity(prev, {
+          type: "info",
+          message:
+            env === "live_sandbox"
+              ? "Switched to LIVE SANDBOX"
+              : "Switched to DEMO mode",
+        })
+      );
+      updateSettings({ environment: env });
+      setEnvironmentState(env);
+      environmentRef.current = env;
+    },
+    [updateSettings]
+  );
+
+  const initializeSandbox = useCallback(async () => {
+    setSandboxConnection("connecting");
+    try {
+      const statusPayload = await initializeSandboxRemote();
+      setSandboxStatus(statusPayload);
+      updateSettings({ sandboxSetupComplete: true, environment: "live_sandbox" });
+      await refreshSandbox();
+      // Reconnect adapter after init
+      if (adapterRef.current) {
+        await adapterRef.current.connect();
+        setStatus(adapterRef.current.getStatus());
+      }
+      setActivity((prev) =>
+        pushActivity(prev, {
+          type: "info",
+          message: `Sandbox initialized — ${statusPayload.profiles} profiles, ${statusPayload.incomingLikes} incoming likes`,
+        })
+      );
+    } catch (error) {
+      setSandboxConnection("error");
+      setActivity((prev) =>
+        pushActivity(prev, {
+          type: "error",
+          message:
+            error instanceof Error ? error.message : "Failed to initialize sandbox",
+        })
+      );
+      throw error;
+    }
+  }, [refreshSandbox, updateSettings]);
+
+  const resetSandbox = useCallback(async () => {
+    setSandboxConnection("connecting");
+    try {
+      const statusPayload = await resetSandboxRemote();
+      setSandboxStatus(statusPayload);
+      setSandboxMatches([]);
+      await refreshSandbox();
+      if (adapterRef.current) {
+        await adapterRef.current.connect();
+        setStatus(adapterRef.current.getStatus());
+      }
+      setActivity((prev) =>
+        pushActivity(prev, {
+          type: "info",
+          message: "Live Sandbox reset — seed data restored",
+        })
+      );
+    } catch (error) {
+      setSandboxConnection("error");
+      setActivity((prev) =>
+        pushActivity(prev, {
+          type: "error",
+          message: error instanceof Error ? error.message : "Failed to reset sandbox",
+        })
+      );
+      throw error;
+    }
+  }, [refreshSandbox]);
+
+  const startBlockedReason = useMemo(() => {
+    if (environment === "demo") return null;
+    if (sandboxConnection === "connecting") return "Connecting to Live Sandbox…";
+    if (!sandboxStatus?.available) {
+      return (
+        sandboxStatus?.reason ??
+        "LOCAL SETUP REQUIRED — Live Sandbox needs a local SQLite backend."
+      );
+    }
+    if (!sandboxStatus.initialized) {
+      return "Initialize Live Sandbox before starting AUTOPILOT.";
+    }
+    if (sandboxConnection === "error" || status === "error") {
+      return "Live Sandbox is offline or errored. Check setup and try again.";
+    }
+    if (sandboxConnection !== "connected" && status !== "connected" && status !== "stopped") {
+      return "Waiting for Live Sandbox connection…";
+    }
+    return null;
+  }, [environment, sandboxConnection, sandboxStatus, status]);
+
+  const canStart =
+    !isRunningStatus(status) &&
+    (environment === "demo" || startBlockedReason === null);
+
   const start = useCallback(async () => {
     let adapter = adapterRef.current;
     if (!adapter) {
-      adapter = new DemoAutomationAdapter();
+      adapter = createAdapter(environmentRef.current);
       adapterRef.current = adapter;
       await adapter.connect();
       setStatus(adapter.getStatus());
       setHydrated(true);
+    }
+
+    if (environmentRef.current === "live_sandbox") {
+      await refreshSandbox();
+      const latest = await fetchSandboxStatus();
+      setSandboxStatus(latest);
+      if (!latest.available || !latest.initialized) {
+        setActivity((prev) =>
+          pushActivity(prev, {
+            type: "error",
+            message: latest.reason ?? "Live Sandbox is not ready",
+          })
+        );
+        return;
+      }
     }
 
     const id = makeId("session");
@@ -468,7 +726,10 @@ export function AutopilotProvider({ children }: { children: ReactNode }) {
         id: makeId("evt"),
         timestamp: started,
         type: "session_start",
-        message: "AUTOPILOT started",
+        message:
+          environmentRef.current === "live_sandbox"
+            ? "AUTOPILOT started (LIVE SANDBOX)"
+            : "AUTOPILOT started",
       },
     ]);
 
@@ -480,7 +741,7 @@ export function AutopilotProvider({ children }: { children: ReactNode }) {
     }, 1000);
 
     await adapter.start(configRef.current);
-  }, []);
+  }, [refreshSandbox]);
 
   const stop = useCallback(async () => {
     await adapterRef.current?.stop();
@@ -511,11 +772,10 @@ export function AutopilotProvider({ children }: { children: ReactNode }) {
       randomizeTiming: settingsRef.current.randomizeTiming,
       stopAfterMax: settingsRef.current.stopAfterMax,
     });
-    // Clear last active snapshot but keep history
     savePersistedState({
       settings: settingsRef.current,
       sessions: sessionsRef.current,
-      matches: matchesRef.current,
+      matches: demoMatchesRef.current,
       lastActiveSession: null,
     });
   }, []);
@@ -583,7 +843,8 @@ export function AutopilotProvider({ children }: { children: ReactNode }) {
     clearPersistedState();
     setSettings({ ...DEFAULT_SETTINGS });
     setSessions([]);
-    setMatches([]);
+    setDemoMatches([]);
+    setSandboxMatches([]);
     setStats(emptyStats());
     setActivity([]);
     setCurrentProfile(null);
@@ -596,8 +857,10 @@ export function AutopilotProvider({ children }: { children: ReactNode }) {
     setSessionStartedAt(null);
     setSelectedMatchId(null);
     setConfigState({ ...DEFAULT_CONFIG });
+    setEnvironmentState("demo");
+    environmentRef.current = "demo";
     sessionsRef.current = [];
-    matchesRef.current = [];
+    demoMatchesRef.current = [];
     settingsRef.current = { ...DEFAULT_SETTINGS };
   }, []);
 
@@ -606,6 +869,14 @@ export function AutopilotProvider({ children }: { children: ReactNode }) {
       hydrated,
       status,
       isRunning: status === "running",
+      environment,
+      setEnvironment,
+      sandboxStatus,
+      sandboxConnection,
+      sandboxInspect,
+      refreshSandbox,
+      initializeSandbox,
+      resetSandbox,
       config,
       setConfig,
       settings,
@@ -622,6 +893,8 @@ export function AutopilotProvider({ children }: { children: ReactNode }) {
       matches,
       sessionId,
       sessionStartedAt,
+      canStart,
+      startBlockedReason,
       start,
       stop,
       resetDemo,
@@ -635,6 +908,14 @@ export function AutopilotProvider({ children }: { children: ReactNode }) {
     [
       hydrated,
       status,
+      environment,
+      setEnvironment,
+      sandboxStatus,
+      sandboxConnection,
+      sandboxInspect,
+      refreshSandbox,
+      initializeSandbox,
+      resetSandbox,
       config,
       setConfig,
       settings,
@@ -651,6 +932,8 @@ export function AutopilotProvider({ children }: { children: ReactNode }) {
       matches,
       sessionId,
       sessionStartedAt,
+      canStart,
+      startBlockedReason,
       start,
       stop,
       resetDemo,
@@ -665,6 +948,10 @@ export function AutopilotProvider({ children }: { children: ReactNode }) {
   return (
     <AutopilotContext.Provider value={value}>{children}</AutopilotContext.Provider>
   );
+}
+
+function isRunningStatus(status: AdapterStatus): boolean {
+  return status === "running";
 }
 
 export function useAutopilot(): AutopilotContextValue {

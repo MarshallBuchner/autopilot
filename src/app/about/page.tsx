@@ -25,8 +25,9 @@ export default function AboutPage() {
           automation surface.
         </p>
         <p>
-          AUTOPILOT supports isolated demo and sandbox environments. Demo Mode uses
-          fictional profiles and does not access third-party dating accounts.
+          AUTOPILOT supports isolated <span className="text-ap-text">Demo</span> and{" "}
+          <span className="text-ap-text">Live Sandbox</span> environments. Neither
+          connects to Tinder, Bumble, Hinge, or any production dating service.
         </p>
         <p>
           AUTOPILOT is an independent experimental project and is{" "}
@@ -43,9 +44,20 @@ export default function AboutPage() {
         </h2>
         <p className="leading-relaxed text-ap-text-muted">
           Uses <code className="text-xs text-ap-accent">DemoAutomationAdapter</code> and
-          fictional profiles for a completely local demonstration of the AUTOPILOT
-          experience. No dating-platform credentials are required, no real accounts are
-          accessed, and no third-party dating APIs are called.
+          fictional profiles for a completely local demonstration. Matches are simulated
+          in the frontend. No dating-platform credentials are required.
+        </p>
+      </section>
+
+      <section className="ap-card space-y-3 p-5 text-sm">
+        <h2 className="font-[family-name:var(--font-syne)] text-base font-semibold text-ap-text">
+          Live Sandbox
+        </h2>
+        <p className="leading-relaxed text-ap-text-muted">
+          Uses <code className="text-xs text-ap-accent">SandboxAutomationAdapter</code>{" "}
+          against an AUTOPILOT-owned local SQLite backend. Profiles, likes, and matches
+          persist. A match exists only when both users have liked each other. Requires
+          local setup — not available as persistent storage on typical Vercel deployments.
         </p>
       </section>
 
@@ -56,10 +68,9 @@ export default function AboutPage() {
         <p className="leading-relaxed text-ap-text-muted">
           AUTOPILOT communicates through the{" "}
           <code className="text-xs text-ap-accent">AutomationAdapter</code> interface so
-          additional authorized or self-hosted environments can be integrated without
-          rewriting the UI. The currently shipped environment is Demo Mode. This project
-          does not imply that Tinder, Bumble, Hinge, or any other third-party dating
-          platform is currently supported.
+          authorized or self-hosted environments can be integrated without rewriting the
+          UI. This project does not imply that Tinder, Bumble, Hinge, or any other
+          third-party dating platform is currently supported.
         </p>
       </section>
 
@@ -68,9 +79,11 @@ export default function AboutPage() {
           Privacy
         </h2>
         <p>
-          Session history, matches, and settings persist in{" "}
-          <code className="text-xs text-ap-text">localStorage</code>. Nothing is sent to a
-          backend. Clear data anytime from Settings.
+          Demo session history lives in{" "}
+          <code className="text-xs text-ap-text">localStorage</code>. Live Sandbox likes
+          and matches persist in a local SQLite database under{" "}
+          <code className="text-xs text-ap-text">data/</code>. Clear browser data anytime
+          from Settings.
         </p>
       </section>
 
