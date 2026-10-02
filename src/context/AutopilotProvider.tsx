@@ -401,13 +401,7 @@ export function AutopilotProvider({ children }: { children: ReactNode }) {
       window.clearTimeout(unlock);
       unsubs.forEach((u) => u());
       void adapter.disconnect();
-      clearTimeout(likeTimerRef.current ?? undefined);
-      clearTimeout(exitTimerRef.current ?? undefined);
-      clearTimeout(matchTimerRef.current ?? undefined);
-      clearInterval(durationTimerRef.current ?? undefined);
     };
-  // Timer refs are mutated during the session; empty deps keep adapter wiring once.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Persist settings / sessions / matches when they change (after hydrate)
